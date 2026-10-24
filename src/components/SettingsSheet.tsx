@@ -6,6 +6,7 @@ import { downloadBackup, restoreBackup } from "../lib/backup";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import RemindSettings from "./RemindSettings";
+import NewPassword from "./NewPassword";
 
 const OK = /^https:\/\/calendar\.google\.com\/calendar\/ical\/[^\s]+\.ics(\?[^\s]*)?$/;
 /** Link säubern: Leerzeichen/Zeilenumbrüche weg, webcal:// → https:// */
@@ -114,6 +115,7 @@ export default function SettingsSheet({ onClose }: { onClose: () => void }) {
         <h3 style={{ marginTop: 18 }}>Konto</h3>
         <p className="muted small">Angemeldet als {auth?.user.email}</p>
         <NameEdit />
+        <details className="howto"><summary>Passwort ändern</summary><NewPassword onDone={() => {}} /></details>
         <div className="detail-actions">
           <button className="btn" onClick={signOut}>Abmelden</button>
           <button className="btn danger" onClick={async () => {

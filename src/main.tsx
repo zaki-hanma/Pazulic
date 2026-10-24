@@ -11,7 +11,23 @@ import "@fontsource/jetbrains-mono/latin-700.css";
 import "./styles.css";
 import App from "./App";
 import { StoreProvider } from "./lib/store";
+import { supabase } from "./lib/supabase";
 
+// Links aus E-Mails (Passwort zurücksetzen, E-Mail bestätigen) bringen Daten im „#…“ mit.
+// Zuerst die Anmeldung daraus lesen, DANN die App starten (sonst überschreibt der Router den Link).
+async function boot() {
+  const h = window.location.hash;
+  if (h.includes("access_token=") || h.includes("error_description=")) {
+    const p = new URLSearchParams(h.replace(/^#/, ""));
+    if (p.get("type") === "recovery") sessionStorage.setItem("pw-recovery", "1");
+    if (p.get("error_description")) sessionStorage.setItem("auth-error", p.get("error_code") === "otp_expired" ? "Der Link ist abgelaufen oder wurde schon benutzt. Fordere einen neuen an." : p.get("error_description")!);
+    await supabase.auth.getSession();
+    history.replaceState(null, "", window.location.pathname + "#/");
+  }
+  render();
+}
+
+function render() {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <HashRouter>
@@ -21,6 +37,8 @@ createRoot(document.getElementById("root")!).render(
     </HashRouter>
   </StrictMode>,
 );
+}
+boot();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));

@@ -11,7 +11,11 @@ export default function Auth() {
   const [pw, setPw] = useState("");
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(() => {
+    const e = sessionStorage.getItem("auth-error");
+    if (e) { sessionStorage.removeItem("auth-error"); return { ok: false, text: e }; }
+    return null;
+  });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,9 +33,9 @@ export default function Auth() {
   }
 
   async function reset() {
-    if (!email) { setMsg({ ok: false, text: "Schreib zuerst deine E-Mail oben hinein." }); return; }
+    if (!email) { setMsg({ ok: false, text: "Schreib zuerst deine E-Mail oben hinein, dann tippe nochmal auf „Passwort vergessen?“." }); return; }
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
-    setMsg(error ? { ok: false, text: error.message } : { ok: true, text: "Wir haben dir eine E-Mail zum Zurücksetzen geschickt." });
+    setMsg(error ? { ok: false, text: error.message.includes("rate") ? "Zu viele Versuche. Bitte warte etwas und versuche es später nochmal." : error.message } : { ok: true, text: "Wenn es ein Konto mit dieser E-Mail gibt, kommt gleich eine E-Mail. Öffne den Link darin (auch im Spam-Ordner schauen) und wähle ein neues Passwort." });
   }
 
   return (

@@ -92,7 +92,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { setAuth(data.session); setAuthReady(true); });
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setAuth(s));
+    const { data } = supabase.auth.onAuthStateChange((e, s) => { if (e === "PASSWORD_RECOVERY") { sessionStorage.setItem("pw-recovery", "1"); window.dispatchEvent(new Event("pw-recovery")); } setAuth(s); });
     return () => data.subscription.unsubscribe();
   }, []);
 
