@@ -7,6 +7,7 @@ import Plan from "./pages/Plan";
 import Klausuren from "./pages/Klausuren";
 import Analyse from "./pages/Analyse";
 import Noten from "./pages/Noten";
+import Langfristig from "./pages/Langfristig";
 import Logo from "./components/Logo";
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="plan" element={<Plan />} />
         <Route path="analyse" element={<Analyse />} />
         <Route path="klausuren" element={<Klausuren />} />
+        <Route path="langfristig" element={<Langfristig />} />
         <Route path="noten" element={<Noten />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

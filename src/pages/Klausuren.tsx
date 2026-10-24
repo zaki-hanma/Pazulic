@@ -5,6 +5,7 @@ import { at, countdown, fmtMin, longDate } from "../lib/dates";
 import { examProgress } from "../lib/plan";
 import type { Exam, Topic } from "../lib/types";
 import Sheet from "../components/Sheet";
+import KlausurTabs from "../components/KlausurTabs";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -93,6 +94,7 @@ export default function Klausuren() {
         <h1>Klausuren</h1>
         <button className="btn primary small" onClick={() => setEdit("new")}>+ Klausur</button>
       </header>
+      <KlausurTabs />
       {future.length === 0 && <section className="card"><p className="muted">Keine kommende Klausur. Tippe auf „+ Klausur“.</p></section>}
       {future.map(card)}
       {past.length > 0 && (

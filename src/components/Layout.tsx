@@ -6,12 +6,12 @@ import { useStore } from "../lib/store";
 const NAV = [
   { to: "/", label: "Heute", icon: "☀" },
   { to: "/plan", label: "Plan", icon: "▦" },
-  { to: "/analyse", label: "Analyse", icon: "▮" },
   { to: "/klausuren", label: "Klausuren", icon: "✎" },
+  { to: "/analyse", label: "Analyse", icon: "▮" },
   { to: "/noten", label: "Noten", icon: "★" },
 ];
 
-const BG: Record<string, string> = { "/noten": "tafel" };
+const BG: Record<string, string> = { "/noten": "tafel", "/langfristig": "reise" };
 
 export default function Layout() {
   const { pathname } = useLocation();
@@ -26,7 +26,7 @@ export default function Layout() {
         <div className="brand"><Logo size={40} /><span>Pazulic</span></div>
         <nav>
           {NAV.map((n) => (
-            <NavLink key={n.to} to={n.to} end={n.to === "/"} className={({ isActive }) => "side-link" + (isActive ? " active" : "")}>
+            <NavLink key={n.to} to={n.to} end={n.to === "/"} className={({ isActive }) => "side-link" + (isActive || (n.to === "/klausuren" && pathname === "/langfristig") ? " active" : "")}>
               <span className="ico">{n.icon}</span>{n.label}
             </NavLink>
           ))}
@@ -46,7 +46,7 @@ export default function Layout() {
       </main>
       <nav className="bottom-nav">
         {NAV.map((n) => (
-          <NavLink key={n.to} to={n.to} end={n.to === "/"} className={({ isActive }) => "tab" + (isActive ? " active" : "")}>
+          <NavLink key={n.to} to={n.to} end={n.to === "/"} className={({ isActive }) => "tab" + (isActive || (n.to === "/klausuren" && pathname === "/langfristig") ? " active" : "")}>
             <span className="ico">{n.icon}</span>
             <span>{n.label}</span>
           </NavLink>

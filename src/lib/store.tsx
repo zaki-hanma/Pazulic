@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from "react";
 import type { Session as AuthSession } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
-import type { Block, Exam, Session, TimerState } from "./types";
+import type { Block, Exam, Goal, Session, TimerState } from "./types";
 
 interface Store {
   auth: AuthSession | null;
@@ -13,11 +13,14 @@ interface Store {
   exams: Exam[];
   blocks: Block[];
   sessions: Session[];
+  goals: Goal[];
   timer: TimerState | null;
   error: string | null;
   clearError: () => void;
   saveExam: (e: Partial<Exam> & { subject: string; date: string }) => Promise<boolean>;
   deleteExam: (id: string) => Promise<boolean>;
+  saveGoal: (g: { id?: string; title: string; date: string | null }) => Promise<boolean>;
+  deleteGoal: (id: string) => Promise<boolean>;
   saveBlock: (b: Partial<Block> & Pick<Block, "date" | "start_time" | "end_time" | "kind">) => Promise<boolean>;
   deleteBlock: (id: string) => Promise<boolean>;
   toggleDone: (b: Block, date: string) => Promise<void>;
@@ -43,6 +46,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [exams, setExams] = useState<Exam[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [timer, setTimerState] = useState<TimerState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const uid = auth?.user.id;
@@ -57,22 +61,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadAll = useCallback(async () => {
     if (!uid || loading.current) return;
     loading.current = true;
-    const [e, b, s, t] = await Promise.all([
+    const [e, b, s, t, g] = await Promise.all([
       supabase.from("exams").select("*").order("date"),
       supabase.from("plan_blocks").select("*"),
       supabase.from("study_sessions").select("*"),
       supabase.from("timer_state").select("*").maybeSingle(),
+      supabase.from("long_goals").select("*").order("date"),
     ]);
     loading.current = false;
-    if (e.error || b.error || s.error) { setError("Daten konnten nicht geladen werden. Bitte später nochmal öffnen."); return; }
-    setExams(e.data as Exam[]); setBlocks(b.data as Block[]); setSessions(s.data as Session[]);
+    if (e.error || b.error || s.error || g.error) { setError("Daten konnten nicht geladen werden. Bitte später nochmal öffnen."); return; }
+    setExams(e.data as Exam[]); setBlocks(b.data as Block[]); setSessions(s.data as Session[]); setGoals(g.data as Goal[]);
     setTimerState((t.data as TimerState) ?? null);
     setReady(true);
   }, [uid]);
 
   // Einmal laden, danach live über Realtime (Handy und Laptop bleiben synchron).
   useEffect(() => {
-    if (!uid) { setReady(false); setExams([]); setBlocks([]); setSessions([]); setTimerState(null); return; }
+    if (!uid) { setReady(false); setExams([]); setBlocks([]); setSessions([]); setGoals([]); setTimerState(null); return; }
     loadAll();
     let t: number | undefined;
     const reload = () => { window.clearTimeout(t); t = window.setTimeout(loadAll, 300); };
@@ -80,6 +85,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "exams", filter: `user_id=eq.${uid}` }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "plan_blocks", filter: `user_id=eq.${uid}` }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "study_sessions", filter: `user_id=eq.${uid}` }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "long_goals", filter: `user_id=eq.${uid}` }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "timer_state", filter: `user_id=eq.${uid}` }, reload)
       .subscribe();
     const onVis = () => { if (document.visibilityState === "visible") loadAll(); };
@@ -101,6 +107,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const { error: err } = await supabase.from("exams").delete().eq("id", id);
     if (err) { setError("Löschen hat nicht geklappt."); return false; }
     setExams((p) => p.filter((e) => e.id !== id));
+    return true;
+  };
+
+  const saveGoal: Store["saveGoal"] = async (x) => {
+    const row = { title: x.title, date: x.date || null };
+    const res = x.id ? await supabase.from("long_goals").update(row).eq("id", x.id).select().single()
+      : await supabase.from("long_goals").insert(row).select().single();
+    if (res.error) { setError(FAIL); return false; }
+    const saved = res.data as Goal;
+    setGoals((p) => [...p.filter((g) => g.id !== saved.id), saved]);
+    return true;
+  };
+
+  const deleteGoal: Store["deleteGoal"] = async (id) => {
+    const { error: err } = await supabase.from("long_goals").delete().eq("id", id);
+    if (err) { setError("Löschen hat nicht geklappt."); return false; }
+    setGoals((p) => p.filter((g) => g.id !== id));
     return true;
   };
 
@@ -160,10 +183,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const signOut = async () => { await supabase.auth.signOut(); };
 
   const value = useMemo<Store>(() => ({
-    auth, authReady, ready, exams, blocks, sessions, timer, error, clearError: () => setError(null),
-    saveExam, deleteExam, saveBlock, deleteBlock, toggleDone, addSession, deleteSession, setTimer, signOut,
+    auth, authReady, ready, exams, blocks, sessions, goals, timer, error, clearError: () => setError(null),
+    saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, toggleDone, addSession, deleteSession, setTimer, signOut,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [auth, authReady, ready, exams, blocks, sessions, timer, error]);
+  }), [auth, authReady, ready, exams, blocks, sessions, goals, timer, error]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

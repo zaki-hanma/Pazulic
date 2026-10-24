@@ -10,7 +10,7 @@ export default function TimerCard() {
   const lastPomo = useRef<number>(-1);
   const running = !!timer?.running;
   const ms = elapsedMs(timer, now);
-  const meta = (timer?.meta ?? {}) as { title?: string; subject?: string; topic?: string; exam_id?: string | null; date?: string };
+  const meta = (timer?.meta ?? {}) as { title?: string; subject?: string; topic?: string; lernfeld?: string; exam_id?: string | null; date?: string };
 
   useEffect(() => {
     if (!running) return;
@@ -46,7 +46,7 @@ export default function TimerCard() {
     if (min >= 1) {
       const ok = await addSession({
         block_id: timer.block_id, goal_id: timer.goal_id, exam_id: meta.exam_id ?? null,
-        subject: meta.subject ?? "", lernfeld: null, topic: meta.topic ?? meta.title ?? "",
+        subject: meta.subject ?? "", lernfeld: meta.lernfeld || null, topic: meta.topic ?? meta.title ?? "",
         date: meta.date ?? today(), minutes: min, source: "timer",
       });
       if (!ok) return;
@@ -61,7 +61,7 @@ export default function TimerCard() {
     <section className="card timer-card">
       <div className="timer-top">
         <span className="pill" style={{ ["--c" as string]: running ? "var(--green)" : "var(--yellow)" }}>{running ? "● Läuft" : isPause ? "Pause! 5 Min. Wasser trinken 💧" : "Pausiert"}</span>
-        <span className="muted small">{meta.subject}</span>
+        <span className="muted small">{meta.subject}{meta.lernfeld ? " · " + meta.lernfeld : ""}</span>
       </div>
       <h3 className="timer-title">{meta.title || meta.topic || "Lernen"}</h3>
       <div className="timer-clock mono">{fmtClock(ms)}</div>

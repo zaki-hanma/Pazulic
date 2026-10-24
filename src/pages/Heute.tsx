@@ -34,7 +34,7 @@ export default function Heute() {
         <div className="mobile-logo"><Logo size={34} /></div>
         <div>
           <h1>{hello}, Zaki</h1>
-          <p className="muted">{longDate(d)}{special && <> · <span className="tag">{special}</span></>}</p>
+          <p className="muted">{longDate(d)}{special && <> · <span className={"tag" + (holidayName(d) ? " red" : "")}>{special}</span></>}</p>
         </div>
       </header>
 

@@ -27,6 +27,8 @@ export interface TimerState {
   started_at: string | null; acc_ms: number; meta: Record<string, unknown>;
 }
 
+export interface Goal { id: string; user_id?: string; title: string; date: string | null; created_at?: string }
+
 /** Ein Plan-Eintrag an einem bestimmten Tag (auch wiederholte Einträge). */
 export interface Occurrence { block: Block; date: string; done: boolean }
 

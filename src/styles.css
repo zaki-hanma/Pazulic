@@ -1,7 +1,7 @@
 :root {
   --bg: #0E131B; --text: #E8ECF3; --muted: #9AA5B6;
   --yellow: #F2CF45; --on-yellow: #2A2200; --blue: #8AA6FF; --pink: #FF9ECF;
-  --green: #5FD394; --red: #FF8A8A; --orange: #FFB067;
+  --green: #5FD394; --ferien: #4FC3F7; --red: #FF8A8A; --orange: #FFB067;
   --glass: rgba(20, 26, 38, 0.2); --glass-strong: rgba(20, 26, 38, 0.72);
   --line: rgba(255, 255, 255, 0.16); --nav: rgba(14, 19, 27, 0.35);
   --r: 18px;
@@ -64,7 +64,7 @@ button { cursor: pointer; }
 .card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
 .grid2 { display: grid; grid-template-columns: 1fr; gap: 14px; }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; background: color-mix(in srgb, var(--c) 22%, transparent); color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); }
-.tag { display: inline-block; padding: 1px 8px; border-radius: 8px; font-size: 0.78rem; background: rgba(95, 211, 148, 0.18); color: var(--green); margin-right: 6px; }
+.tag { display: inline-block; padding: 1px 8px; border-radius: 8px; font-size: 0.78rem; background: color-mix(in srgb, var(--ferien) 20%, transparent); color: var(--ferien); margin-right: 6px; }
 .tag.red { background: rgba(255,138,138,.18); color: var(--red); }
 
 /* Buttons */
@@ -81,7 +81,10 @@ button { cursor: pointer; }
 .link { background: none; border: 0; color: var(--blue); padding: 4px 0; text-decoration: underline; }
 .seg { display: inline-flex; background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
 .seg button { border: 0; background: none; padding: 6px 14px; border-radius: 9px; color: var(--muted); font-weight: 700; }
-.seg button.on { background: var(--yellow); color: var(--on-yellow); }
+.seg button.on, .seg a.on { background: var(--yellow); color: var(--on-yellow); }
+.seg a { padding: 6px 14px; border-radius: 9px; color: var(--muted); font-weight: 700; text-decoration: none; text-align: center; }
+.seg.wide { display: flex; } .seg.wide a { flex: 1; }
+.lf-row { display: flex; justify-content: space-between; align-items: center; width: 100%; background: none; border: 0; padding: 0; text-align: left; }
 
 /* Heute */
 .exam-hero { display: grid; gap: 6px; }
@@ -116,7 +119,8 @@ button { cursor: pointer; }
 .wd.today { border-color: var(--yellow); }
 .wd.on { background: var(--yellow); color: var(--on-yellow); }
 .wd.on small { color: var(--on-yellow); }
-.wd.fer { background-color: rgba(95,211,148,.14); }
+.wd.fer { background-image: linear-gradient(180deg, color-mix(in srgb, var(--ferien) 32%, transparent) 0 82%, transparent 82%); }
+.wd.hol { background-color: rgba(255,138,138,.22); }
 .wd.hol b { color: var(--red); }
 .wd.on.hol b { color: var(--on-yellow); }
 .exam-dot { position: absolute; top: 4px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--red); }
@@ -126,7 +130,8 @@ button { cursor: pointer; }
 .cal-wd { text-align: center; font-size: 0.75rem; color: var(--muted); padding: 2px 0; }
 .cal-cell { min-height: 62px; display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 4px; border-radius: 10px; border: 1px solid transparent; background: rgba(255,255,255,.04); text-align: left; overflow: hidden; }
 .cal-cell.out { opacity: .35; }
-.cal-cell.fer { background: rgba(95,211,148,.14); }
+.cal-cell.fer .cal-n { margin: -4px -4px 0; padding: 2px 5px; border-radius: 9px 9px 0 0; background: color-mix(in srgb, var(--ferien) 38%, transparent); }
+.cal-cell.hol { background: rgba(255,138,138,.22); }
 .cal-cell.hol .cal-n { color: var(--red); }
 .cal-cell.today { border-color: var(--yellow); }
 .cal-cell.on { background: rgba(242,207,69,.25); }
@@ -137,7 +142,7 @@ button { cursor: pointer; }
 .cal-dots i { width: 6px; height: 6px; border-radius: 50%; }
 .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
 .lg { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-left: 6px; }
-.lg.fer { background: rgba(95,211,148,.4); } .lg.hol { background: var(--red); } .lg.ex { background: var(--red); border-radius: 50%; }
+.lg.fer { background: color-mix(in srgb, var(--ferien) 60%, transparent); } .lg.hol { background: rgba(255,138,138,.5); } .lg.ex { background: var(--red); border-radius: 50%; }
 @media (min-width: 900px) { .cal-cell { min-height: 86px; } .cal-dots i { width: 8px; height: 8px; } }
 
 /* Timer */

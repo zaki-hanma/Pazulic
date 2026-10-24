@@ -59,7 +59,7 @@ export default function Plan() {
           <div className="week-days">
             {week.map((d) => {
               const pd = parseYmd(d);
-              const mark = holidayName(d) ? "hol" : ferienName(d) ? "fer" : "";
+              const mark = [holidayName(d) ? "hol" : "", ferienName(d) ? "fer" : ""].join(" ").trim();
               return (
                 <button key={d} className={"wd" + (d === day ? " on" : "") + (d === t ? " today" : "") + (mark ? " " + mark : "")} onClick={() => setDay(d)}>
                   <small>{WD_SHORT[pd.getDay()]}</small><b>{pd.getDate()}</b>
@@ -82,7 +82,7 @@ export default function Plan() {
             {cells.map((c) => {
               const hol = holidayName(c.d), fer = ferienName(c.d), ex = examDates.get(c.d);
               return (
-                <button key={c.d} className={"cal-cell" + (c.inMonth ? "" : " out") + (c.d === day ? " on" : "") + (c.d === t ? " today" : "") + (hol ? " hol" : fer ? " fer" : "")} onClick={() => pick(c.d)} title={hol || fer || ""}>
+                <button key={c.d} className={"cal-cell" + (c.inMonth ? "" : " out") + (c.d === day ? " on" : "") + (c.d === t ? " today" : "") + (hol ? " hol" : "") + (fer ? " fer" : "")} onClick={() => pick(c.d)} title={hol || fer || ""}>
                   <span className="cal-n">{parseYmd(c.d).getDate()}</span>
                   {ex && <span className="cal-exam">{ex}</span>}
                   {hol && <span className="cal-hol">{hol}</span>}
@@ -99,7 +99,7 @@ export default function Plan() {
         <div className="card-head">
           <div>
             <h2>{longDate(day)}</h2>
-            {special && <span className="tag">{special}</span>}
+            {special && <span className={"tag" + (holidayName(day) ? " red" : "")}>{special}</span>}
             {examDates.has(day) && <span className="tag red">Klausur: {examDates.get(day)}</span>}
           </div>
           <button className="btn primary small" onClick={() => setAdd(true)}>+ Eintrag</button>
