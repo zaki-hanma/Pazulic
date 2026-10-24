@@ -1,0 +1,57 @@
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import Petals from "./Petals";
+import Logo from "./Logo";
+import { useStore } from "../lib/store";
+
+const NAV = [
+  { to: "/", label: "Heute", icon: "☀" },
+  { to: "/plan", label: "Plan", icon: "▦" },
+  { to: "/analyse", label: "Analyse", icon: "▮" },
+  { to: "/klausuren", label: "Klausuren", icon: "✎" },
+  { to: "/noten", label: "Noten", icon: "★" },
+];
+
+const BG: Record<string, string> = { "/noten": "tafel" };
+
+export default function Layout() {
+  const { pathname } = useLocation();
+  const { error, clearError, signOut, auth } = useStore();
+  const bg = BG[pathname] ?? "bibliothek";
+  return (
+    <div className="app">
+      <div className="bg" style={{ backgroundImage: `url(./backgrounds/${bg}.jpg)` }} />
+      <div className="bg-shade" />
+      <Petals />
+      <aside className="sidebar">
+        <div className="brand"><Logo size={40} /><span>Pazulic</span></div>
+        <nav>
+          {NAV.map((n) => (
+            <NavLink key={n.to} to={n.to} end={n.to === "/"} className={({ isActive }) => "side-link" + (isActive ? " active" : "")}>
+              <span className="ico">{n.icon}</span>{n.label}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="side-foot">
+          <span className="muted small">{auth?.user.email}</span>
+          <button className="btn ghost small" onClick={signOut}>Abmelden</button>
+        </div>
+      </aside>
+      <main className="main">
+        {error && (
+          <div className="toast" role="alert" onClick={clearError}>
+            {error} <span className="muted">(tippen zum Schließen)</span>
+          </div>
+        )}
+        <Outlet />
+      </main>
+      <nav className="bottom-nav">
+        {NAV.map((n) => (
+          <NavLink key={n.to} to={n.to} end={n.to === "/"} className={({ isActive }) => "tab" + (isActive ? " active" : "")}>
+            <span className="ico">{n.icon}</span>
+            <span>{n.label}</span>
+          </NavLink>
+        ))}
+      </nav>
+    </div>
+  );
+}
