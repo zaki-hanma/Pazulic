@@ -26,6 +26,7 @@ interface Store {
   deleteGoal: (id: string) => Promise<boolean>;
   saveBlock: (b: Partial<Block> & Pick<Block, "date" | "start_time" | "end_time" | "kind">) => Promise<boolean>;
   deleteBlock: (id: string) => Promise<boolean>;
+  addBlocks: (rows: Omit<Block, "id" | "user_id" | "created_at" | "done" | "completed_dates">[]) => Promise<boolean>;
   toggleDone: (b: Block, date: string) => Promise<void>;
   addSession: (s: Omit<Session, "id" | "user_id" | "created_at">) => Promise<boolean>;
   deleteSession: (id: string) => Promise<boolean>;
@@ -160,6 +161,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
+  const addBlocks: Store["addBlocks"] = async (rows) => {
+    const res = await supabase.from("plan_blocks").insert(rows).select();
+    if (res.error) { setError(FAIL); return false; }
+    setBlocks((p) => [...p, ...(res.data as Block[])]);
+    return true;
+  };
+
   const deleteBlock: Store["deleteBlock"] = async (id) => {
     const { error: err } = await supabase.from("plan_blocks").delete().eq("id", id);
     if (err) { setError("Löschen hat nicht geklappt."); return false; }
@@ -236,7 +244,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Store>(() => ({
     auth, authReady, ready, exams, blocks, sessions, goals, grades, reportGrades, settings, timer, error, clearError: () => setError(null),
-    saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, toggleDone, addSession, deleteSession, setTimer, saveGrade, deleteGrade, saveReportGrade, saveSettings, signOut,
+    saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, addBlocks, toggleDone, addSession, deleteSession, setTimer, saveGrade, deleteGrade, saveReportGrade, saveSettings, signOut,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [auth, authReady, ready, exams, blocks, sessions, goals, grades, reportGrades, settings, timer, error]);
 

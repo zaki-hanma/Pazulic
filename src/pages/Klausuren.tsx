@@ -6,6 +6,7 @@ import { examProgress } from "../lib/plan";
 import type { Exam, Topic } from "../lib/types";
 import Sheet from "../components/Sheet";
 import KlausurTabs from "../components/KlausurTabs";
+import AutoPlanSheet from "../components/AutoPlanSheet";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -65,6 +66,7 @@ export default function Klausuren() {
   const now = useNow(60000);
   const [edit, setEdit] = useState<Exam | "new" | null>(null);
   const [showPast, setShowPast] = useState(false);
+  const [auto, setAuto] = useState<Exam | null>(null);
   const future = exams.filter((e) => at(e.date, e.time) > now);
   const past = exams.filter((e) => at(e.date, e.time) <= now).reverse();
 
@@ -83,7 +85,10 @@ export default function Klausuren() {
         <div className="bar"><i style={{ width: `${Math.min(100, p.pct)}%`, background: col }} /></div>
         <p className="muted small">Gelernt {fmtMin(p.learned)} von {fmtMin(p.planned)} geplant · <b style={{ color: col }}>{p.pct} %</b></p>
         {e.topics.length > 0 && <ol className="topics">{e.topics.map((t) => <li key={t.id}>{t.name}</li>)}</ol>}
-        <button className="btn ghost small" onClick={() => setEdit(e)}>Bearbeiten</button>
+        <div className="detail-actions">
+          {future.includes(e) && <button className="btn primary small" onClick={() => setAuto(e)}>✨ Auto-Plan</button>}
+          <button className="btn ghost small" onClick={() => setEdit(e)}>Bearbeiten</button>
+        </div>
       </section>
     );
   };
@@ -103,6 +108,7 @@ export default function Klausuren() {
           {showPast && past.map(card)}
         </>
       )}
+      {auto && <AutoPlanSheet exam={auto} onClose={() => setAuto(null)} />}
       {edit && <Sheet title={edit === "new" ? "Neue Klausur" : "Klausur bearbeiten"} onClose={() => setEdit(null)}><ExamForm exam={edit === "new" ? undefined : edit} onDone={() => setEdit(null)} /></Sheet>}
     </div>
   );

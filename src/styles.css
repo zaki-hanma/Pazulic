@@ -274,3 +274,10 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
 .howto summary { cursor: pointer; font-weight: 700; }
 .howto ol { padding-left: 20px; margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
 .cal-dots i.g { background: #E8ECF3; }
+
+/* Auto-Plan */
+.hint { background: rgba(138,166,255,.12); border: 1px solid rgba(138,166,255,.35); border-radius: 12px; padding: 10px 12px; font-size: .9rem; }
+.ap-list { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.ap-row { display: flex; gap: 10px; align-items: center; padding: 6px 10px; margin-top: 4px; border-radius: 10px; background: rgba(255,255,255,.05); border-left: 3px solid var(--c); }
+.kdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+.seg.wide button { flex: 1; }

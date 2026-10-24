@@ -1,4 +1,8 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { MONTHS, minutesBetween, parseYmd, ymd } from "../lib/dates";
+import { occurrencesOn } from "../lib/plan";
+import { KINDS, KIND_COLOR, KIND_LABEL, isStudy } from "../lib/types";
+import type { Block, Kind } from "../lib/types";
 import { useStore } from "../lib/store";
 import { addDays, fmtMin, isoWeekday, today } from "../lib/dates";
 import { examProgress } from "../lib/plan";
@@ -11,7 +15,70 @@ function status(planned: number, learned: number) {
   return { col: "var(--green)", text: `im Plan, ${pct} %` };
 }
 
+function Alltag({ blocks }: { blocks: Block[] }) {
+  const t = today();
+  const [month, setMonth] = useState(t.slice(0, 7));
+  const shift = (n: number) => { const d = parseYmd(month + "-01"); d.setMonth(d.getMonth() + n); setMonth(ymd(d).slice(0, 7)); };
+  const data = useMemo(() => {
+    const per = new Map<Kind, { m: number; n: number }>();
+    let days = 0;
+    for (let d = month + "-01"; d.startsWith(month) && d <= t; d = addDays(d, 1)) {
+      days++;
+      for (const o of occurrencesOn(blocks, d)) {
+        if (isStudy(o.block.kind)) continue;
+        const e = per.get(o.block.kind) ?? { m: 0, n: 0 };
+        e.m += Math.max(0, minutesBetween(o.block.start_time.slice(0, 5), o.block.end_time.slice(0, 5))); e.n++;
+        per.set(o.block.kind, e);
+      }
+    }
+    return { rows: KINDS.filter((k) => per.has(k)).map((k) => ({ k, ...per.get(k)! })).sort((a, b) => b.m - a.m), days };
+  }, [blocks, month, t]);
+  const max = Math.max(1, ...data.rows.map((r) => r.m));
+  const total = data.rows.reduce((a, r) => a + r.m, 0);
+  const [y, m] = month.split("-").map(Number);
+  return (
+    <>
+      <section className="card">
+        <div className="card-head">
+          <button className="icon-btn" onClick={() => shift(-1)} aria-label="Monat zurück">‹</button>
+          <h2>{MONTHS[m - 1]} {y}</h2>
+          <button className="icon-btn" onClick={() => shift(1)} aria-label="Monat vor" disabled={month >= t.slice(0, 7)}>›</button>
+        </div>
+        {data.days === 0 ? <p className="muted">Dieser Monat hat noch nicht angefangen.</p> : data.rows.length === 0 ? <p className="muted">In diesem Monat gibt es noch keine Alltag-Einträge.</p> : (
+          <>
+            <p className="muted small">Zeit aus deinem Plan bis heute ({data.days} {data.days === 1 ? "Tag" : "Tage"}) · zusammen {fmtMin(total)}</p>
+            {data.rows.map((r) => (
+              <div key={r.k} className="cmp">
+                <div className="row-between"><b><i className="kdot" style={{ background: KIND_COLOR[r.k] }} />{KIND_LABEL[r.k]}</b><span className="mono small">{fmtMin(r.m)}</span></div>
+                <div className="cmp-bar"><i style={{ width: `${(r.m / max) * 100}%`, background: KIND_COLOR[r.k] }} /></div>
+                <p className="muted small">{r.n} {r.n === 1 ? "Eintrag" : "Einträge"} · Ø {fmtMin(r.m / data.days)} pro Tag</p>
+              </div>
+            ))}
+          </>
+        )}
+      </section>
+      <p className="muted small center">Gezählt wird die geplante Zeit der Einträge (Arbeit, Unterwegs, Termine, Schlafen …). Lernen siehst du im Reiter „Lernen“.</p>
+    </>
+  );
+}
+
 export default function Analyse() {
+  const [tab, setTab] = useState<"lernen" | "alltag">(() => { try { return (localStorage.getItem("analyse-tab") as "alltag") || "lernen"; } catch { return "lernen"; } });
+  const pick = (v: "lernen" | "alltag") => { setTab(v); try { localStorage.setItem("analyse-tab", v); } catch { /* egal */ } };
+  const { blocks } = useStore();
+  return (
+    <div className="page">
+      <header className="page-head"><h1>Analyse</h1></header>
+      <div className="seg wide">
+        <button className={tab === "lernen" ? "on" : ""} onClick={() => pick("lernen")}>Lernen</button>
+        <button className={tab === "alltag" ? "on" : ""} onClick={() => pick("alltag")}>Alltag</button>
+      </div>
+      {tab === "lernen" ? <Lernen /> : <Alltag blocks={blocks} />}
+    </div>
+  );
+}
+
+function Lernen() {
   const { exams, blocks, sessions } = useStore();
   const t = today();
   const weekStart = addDays(t, 1 - isoWeekday(t));
@@ -32,8 +99,7 @@ export default function Analyse() {
   const maxE = Math.max(1, ...rows.map((r) => Math.max(r.planned, r.learned)));
 
   return (
-    <div className="page">
-      <header className="page-head"><h1>Analyse</h1></header>
+    <>
       <section className="kpi-row">
         {totals.map((x) => <div key={x.label} className="card kpi"><span className="muted small">{x.label}</span><b className="mono">{fmtMin(x.m)}</b></div>)}
       </section>
@@ -67,7 +133,6 @@ export default function Analyse() {
         </div>
         <p className="muted small">Zahlen = Stunden</p>
       </section>
-      <p className="muted small center">Mehr Analyse (Themen, Alltag pro Monat, Lerneffekt) kommt im nächsten Schritt.</p>
-    </div>
+    </>
   );
 }
