@@ -329,3 +329,6 @@ input.num { width: 64px; flex: none !important; text-align: center; }
 .hit-date small { color: var(--muted); }
 .hits-sep { margin: 6px 0 2px; }
 #day-list { scroll-margin-top: 12px; }
+.rem-list { display: flex; flex-direction: column; gap: 4px; }
+.rem-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+.rem-row select { width: 160px; padding: 7px 8px; font-size: .88rem; }

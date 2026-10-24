@@ -15,6 +15,7 @@ export interface Block {
   topic_ids: string[]; planned_minutes: number; done: boolean;
   repeat_weekdays: number[] | null; completed_dates: string[]; created_at?: string;
   custom_kind_id: string | null; repeat_rule: RepeatRule | null; skip_dates: string[];
+  remind_minutes?: number | null;
 }
 
 /** Wiederholung: täglich / wöchentlich / monatlich / jährlich, jeweils „alle N“. */
@@ -30,7 +31,7 @@ export interface RepeatRule {
 }
 
 export interface GoogleRule { id: string; match: string; kind: Kind | null; custom_kind_id: string | null }
-export interface CustomKind { id: string; user_id?: string; name: string; color: string }
+export interface CustomKind { id: string; user_id?: string; name: string; color: string; remind_minutes?: number | null }
 export interface GoogleMark {
   id: string; user_id?: string; uid: string; date: string; done: boolean; hidden: boolean;
   minutes: number | null; kind: Kind | null; custom_kind_id: string | null;
@@ -57,7 +58,7 @@ export interface SubjectRow {
   id: string; user_id?: string; school_year: string; key: string; name: string; hours: number; written: number;
   area: "ueber" | "bezogen"; merge_into: string | null; sort: number;
 }
-export interface Settings { google_ical_url: string | null; google_enabled: boolean }
+export interface Settings { google_ical_url: string | null; google_enabled: boolean; remind_defaults?: Record<string, number>; timezone?: string }
 
 export interface Goal { id: string; user_id?: string; title: string; date: string | null; created_at?: string }
 

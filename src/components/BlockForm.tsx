@@ -5,6 +5,7 @@ import { KINDS, KIND_COLOR, KIND_LABEL, isStudy } from "../lib/types";
 import { hhmm, minutesBetween, fmtMin, isoWeekday, parseYmd } from "../lib/dates";
 import { isRepeating, learnMinutes, ruleText } from "../lib/plan";
 import NewKind from "./NewKind";
+import { DEFAULT_REMIND, REMIND_OPTIONS, remindText } from "../lib/push";
 
 const WD = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 type Freq = "none" | RepeatRule["freq"];
@@ -12,7 +13,8 @@ type Freq = "none" | RepeatRule["freq"];
 interface Props { block?: Block; date: string; onDone: () => void }
 
 export default function BlockForm({ block, date, onDone }: Props) {
-  const { exams, saveBlock, deleteBlock, customKinds, skipOccurrence } = useStore();
+  const { exams, saveBlock, deleteBlock, customKinds, skipOccurrence, settings } = useStore();
+  const [remind, setRemind] = useState<string>(block?.remind_minutes == null ? "std" : String(block.remind_minutes));
   const [kind, setKind] = useState<Kind>(block?.kind ?? "lernen");
   const [customId, setCustomId] = useState<string | null>(block?.custom_kind_id ?? null);
   const [newKind, setNewKind] = useState(false);
@@ -59,7 +61,7 @@ export default function BlockForm({ block, date, onDone }: Props) {
     setBusy(true);
     const ok = await saveBlock({
       id: block?.id, kind, title: t, date: d, start_time: start, end_time: end,
-      exam_id: study ? examId || null : null, topic_ids: study ? topics : [], planned_minutes: planned, repeat_weekdays: null, repeat_rule: rule, custom_kind_id: customId,
+      exam_id: study ? examId || null : null, topic_ids: study ? topics : [], planned_minutes: planned, repeat_weekdays: null, repeat_rule: rule, custom_kind_id: customId, remind_minutes: remind === "std" ? null : Number(remind),
     });
     setBusy(false);
     if (ok) onDone();
@@ -165,6 +167,21 @@ export default function BlockForm({ block, date, onDone }: Props) {
           <p className="muted small">Tipp: Der Wochentag kommt vom Datum oben (z. B. für „letzter Mittwoch im Monat“ ein Mittwoch-Datum wählen).</p>
         </div>
       )}
+
+      {(() => {
+        const defs = { ...DEFAULT_REMIND, ...(settings.remind_defaults ?? {}) };
+        const ck = customId ? customKinds.find((x) => x.id === customId) : null;
+        const std = ck?.remind_minutes ?? defs[kind] ?? defs._other;
+        return (
+          <>
+            <label className="lbl" htmlFor="f-rem">🔔 Erinnerung</label>
+            <select id="f-rem" value={remind} onChange={(e) => setRemind(e.target.value)}>
+              <option value="std">Standard ({remindText(std)})</option>
+              {REMIND_OPTIONS.map((o) => <option key={o.v} value={String(o.v)}>{o.t}</option>)}
+            </select>
+          </>
+        );
+      })()}
 
       {msg && <p className="err">{msg}</p>}
       <div className="form-actions">

@@ -5,6 +5,7 @@ import Sheet from "./Sheet";
 import { downloadBackup, restoreBackup } from "../lib/backup";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import RemindSettings from "./RemindSettings";
 
 const OK = /^https:\/\/calendar\.google\.com\/calendar\/ical\/[^\s]+\.ics(\?[^\s]*)?$/;
 /** Link säubern: Leerzeichen/Zeilenumbrüche weg, webcal:// → https:// */
@@ -45,7 +46,10 @@ export default function SettingsSheet({ onClose }: { onClose: () => void }) {
   return (
     <Sheet title="Einstellungen" onClose={onClose}>
       <div className="form">
-        <h3>Google Kalender (freiwillig)</h3>
+        <h3>Erinnerungen</h3>
+        <RemindSettings />
+
+        <h3 style={{ marginTop: 18 }}>Google Kalender (freiwillig)</h3>
         <p className="muted small">Nur in eine Richtung: Termine aus Google erscheinen in Pazulic. Pazulic schreibt nichts in deinen Google Kalender.</p>
         {connected ? (
           <>

@@ -33,7 +33,7 @@ interface Store {
   deleteBlock: (id: string) => Promise<boolean>;
   addBlocks: (rows: (Partial<Block> & Pick<Block, "date" | "start_time" | "end_time" | "kind">)[]) => Promise<boolean>;
   skipOccurrence: (b: Block, date: string) => Promise<boolean>;
-  saveCustomKind: (k: { id?: string; name: string; color: string }) => Promise<CustomKind | null>;
+  saveCustomKind: (k: { id?: string; name: string; color: string; remind_minutes?: number | null }) => Promise<CustomKind | null>;
   deleteCustomKind: (id: string) => Promise<boolean>;
   saveGoogleMark: (m: Partial<GoogleMark> & { uid: string; date: string }) => Promise<boolean>;
   saveGoogleRule: (r: { match: string; kind: GoogleRule["kind"]; custom_kind_id: string | null }) => Promise<boolean>;
@@ -45,7 +45,7 @@ interface Store {
   saveGrade: (g: Omit<Grade, "id" | "user_id" | "created_at"> & { id?: string }) => Promise<boolean>;
   deleteGrade: (id: string) => Promise<boolean>;
   saveReportGrade: (r: { school_year: string; subject: string; grade: number | null }) => Promise<boolean>;
-  saveSettings: (s: Settings) => Promise<boolean>;
+  saveSettings: (s: Partial<Settings>) => Promise<boolean>;
   saveSubjects: (rows: (Omit<SubjectRow, "id" | "user_id"> & { id?: string })[]) => Promise<boolean>;
   deleteSubject: (id: string) => Promise<boolean>;
   reloadAll: () => Promise<void>;
@@ -98,7 +98,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       supabase.from("long_goals").select("*").order("date"),
       supabase.from("grades").select("*"),
       supabase.from("report_grades").select("*"),
-      supabase.from("user_settings").select("google_ical_url, google_enabled").maybeSingle(),
+      supabase.from("user_settings").select("google_ical_url, google_enabled, remind_defaults, timezone").maybeSingle(),
       supabase.from("subjects").select("*").order("sort"),
       supabase.from("custom_kinds").select("*").order("created_at"),
       supabase.from("google_marks").select("*"),
@@ -180,7 +180,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       exam_id: x.exam_id ?? null, date: x.date, start_time: x.start_time, end_time: x.end_time, kind: x.kind,
       title: x.title ?? "", topic_ids: x.topic_ids ?? [], planned_minutes: x.planned_minutes ?? 0,
       repeat_weekdays: x.repeat_rule ? null : x.repeat_weekdays && x.repeat_weekdays.length ? x.repeat_weekdays : null,
-      repeat_rule: x.repeat_rule ?? null, custom_kind_id: x.custom_kind_id ?? null,
+      repeat_rule: x.repeat_rule ?? null, custom_kind_id: x.custom_kind_id ?? null, remind_minutes: x.remind_minutes ?? null,
     };
     const res = x.id ? await supabase.from("plan_blocks").update(row).eq("id", x.id).select().single()
       : await supabase.from("plan_blocks").insert(row).select().single();
@@ -206,7 +206,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const saveCustomKind: Store["saveCustomKind"] = async (k) => {
-    const row = { name: k.name.trim().slice(0, 40), color: k.color };
+    const row = { name: k.name.trim().slice(0, 40), color: k.color, ...(k.remind_minutes !== undefined ? { remind_minutes: k.remind_minutes } : {}) };
     const res = k.id ? await supabase.from("custom_kinds").update(row).eq("id", k.id).select().single()
       : await supabase.from("custom_kinds").insert(row).select().single();
     if (res.error) { setError(FAIL); return null; }
@@ -318,7 +318,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const saveSettings: Store["saveSettings"] = async (x) => {
     const { error: err } = await supabase.from("user_settings").upsert({ ...x, user_id: uid, updated_at: new Date().toISOString() });
     if (err) { setError(FAIL); return false; }
-    setSettingsState(x);
+    setSettingsState((p) => ({ ...p, ...x }));
     return true;
   };
 
