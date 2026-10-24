@@ -44,7 +44,10 @@ export default function Plan() {
 
   const shiftMonth = (n: number) => { const d = parseYmd(month + "-01"); d.setMonth(d.getMonth() + n); setMonth(ymd(d).slice(0, 7)); };
   const pick = (d: string) => { setDay(d); setMonth(d.slice(0, 7)); };
+  const URL_RE = /urlaub|vacation|betriebsferien/i;
+  const urlaubName = (d: string) => (google.get(d) ?? []).find((g) => g.allDay && URL_RE.test(g.title))?.title ?? null;
   const special = holidayName(day) || ferienName(day);
+  const urlaubDay = urlaubName(day);
   const [my, mm] = month.split("-").map(Number);
 
   return (
@@ -63,7 +66,7 @@ export default function Plan() {
           <div className="week-days">
             {week.map((d) => {
               const pd = parseYmd(d);
-              const mark = [holidayName(d) ? "hol" : "", ferienName(d) ? "fer" : ""].join(" ").trim();
+              const mark = [holidayName(d) ? "hol" : "", ferienName(d) ? "fer" : "", urlaubName(d) ? "url" : ""].join(" ").trim();
               return (
                 <button key={d} className={"wd" + (d === day ? " on" : "") + (d === t ? " today" : "") + (mark ? " " + mark : "") + (examDates.has(d) ? " exam" : "")} onClick={() => setDay(d)}>
                   <small>{WD_SHORT[pd.getDay()]}</small><b>{pd.getDate()}</b>
@@ -83,9 +86,9 @@ export default function Plan() {
           <div className="cal-grid">
             {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map((w) => <div key={w} className="cal-wd">{w}</div>)}
             {cells.map((c) => {
-              const hol = holidayName(c.d), fer = ferienName(c.d), ex = examDates.get(c.d);
+              const hol = holidayName(c.d), fer = ferienName(c.d), url = urlaubName(c.d), ex = examDates.get(c.d);
               return (
-                <button key={c.d} className={"cal-cell" + (c.inMonth ? "" : " out") + (c.d === day ? " on" : "") + (c.d === t ? " today" : "") + (hol ? " hol" : "") + (fer ? " fer" : "")} onClick={() => pick(c.d)} title={hol || fer || ""}>
+                <button key={c.d} className={"cal-cell" + (c.inMonth ? "" : " out") + (c.d === day ? " on" : "") + (c.d === t ? " today" : "") + (hol ? " hol" : "") + (fer ? " fer" : "") + (url ? " url" : "")} onClick={() => pick(c.d)} title={[hol, fer, url].filter(Boolean).join(" · ")}>
                   <span className="cal-n">{parseYmd(c.d).getDate()}</span>
                   {ex && <span className="cal-exam">{ex}</span>}
                   {hol && <span className="cal-hol">{hol}</span>}
@@ -94,7 +97,7 @@ export default function Plan() {
               );
             })}
           </div>
-          <p className="muted small legend"><i className="lg fer" /> Schulferien Niedersachsen <i className="lg hol" /> Feiertag <i className="lg ex" /> Klausur <i className="lg" style={{ background: "#E8ECF3", borderRadius: "50%" }} /> Google</p>
+          <p className="muted small legend"><i className="lg fer" /> Schulferien Niedersachsen <i className="lg url" /> Urlaub (Google) <i className="lg hol" /> Feiertag <i className="lg ex" /> Klausur <i className="lg" style={{ background: "#E8ECF3", borderRadius: "50%" }} /> Google</p>
         </section>
       )}
 
@@ -103,6 +106,7 @@ export default function Plan() {
           <div>
             <h2>{longDate(day)}</h2>
             {special && <span className={"tag" + (holidayName(day) ? " red" : "")}>{special}</span>}
+            {urlaubDay && <span className="tag url">{urlaubDay}</span>}
             {examDates.has(day) && <span className="tag red">Klausur: {examDates.get(day)}</span>}
           </div>
           <button className="btn primary small" onClick={() => setAdd(true)}>+ Eintrag</button>
