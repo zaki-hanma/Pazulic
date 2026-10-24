@@ -11,6 +11,18 @@ const OK = /^https:\/\/calendar\.google\.com\/calendar\/ical\/[^\s]+\.ics(\?[^\s
 /** Link säubern: Leerzeichen/Zeilenumbrüche weg, webcal:// → https:// */
 const clean = (u: string) => u.replace(/\s+/g, "").replace(/^webcals?:\/\//i, "https://").replace(/^http:\/\//i, "https://");
 
+function NameEdit() {
+  const { auth } = useStore();
+  const [name, setName] = useState((auth?.user.user_metadata?.name as string) ?? "");
+  const [ok, setOk] = useState(false);
+  return (
+    <div className="inline">
+      <input aria-label="Dein Name" value={name} onChange={(e) => { setName(e.target.value); setOk(false); }} placeholder="Dein Name" maxLength={30} />
+      <button className="btn" onClick={async () => { const { error } = await supabase.auth.updateUser({ data: { name: name.trim() } }); setOk(!error); }}>{ok ? "✓" : "Name speichern"}</button>
+    </div>
+  );
+}
+
 export default function SettingsSheet({ onClose }: { onClose: () => void }) {
   const { settings, saveSettings, signOut, auth, reloadAll } = useStore();
   const [bmsg, setBmsg] = useState<{ ok: boolean; t: string } | null>(null);
@@ -101,6 +113,7 @@ export default function SettingsSheet({ onClose }: { onClose: () => void }) {
 
         <h3 style={{ marginTop: 18 }}>Konto</h3>
         <p className="muted small">Angemeldet als {auth?.user.email}</p>
+        <NameEdit />
         <div className="detail-actions">
           <button className="btn" onClick={signOut}>Abmelden</button>
           <button className="btn danger" onClick={async () => {

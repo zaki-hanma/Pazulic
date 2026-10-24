@@ -15,7 +15,8 @@ import BlockForm from "../components/BlockForm";
 import Logo from "../components/Logo";
 
 export default function Heute() {
-  const { exams, blocks, sessions, timer, toggleDone } = useStore();
+  const { exams, blocks, sessions, timer, toggleDone, auth } = useStore();
+  const name = (auth?.user.user_metadata?.name as string | undefined)?.trim();
   const now = useNow(30000);
   const d = ymd(now);
   const [open, setOpen] = useState<Occurrence | null>(null);
@@ -36,7 +37,7 @@ export default function Heute() {
       <header className="page-head">
         <div className="mobile-logo"><Logo size={34} /></div>
         <div>
-          <h1>{hello}, Zaki</h1>
+          <h1>{hello}{name ? `, ${name}` : ""}</h1>
           <p className="muted">{longDate(d)}{special && <> · <span className={"tag" + (holidayName(d) ? " red" : "")}>{special}</span></>}</p>
         </div>
       </header>
