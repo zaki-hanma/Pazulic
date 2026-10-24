@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useStore } from "../lib/store";
 import type { Occurrence } from "../lib/types";
-import { KIND_COLOR, KIND_LABEL, isStudy } from "../lib/types";
+import { isStudy } from "../lib/types";
 import { fmtMin, hhmm, longDate } from "../lib/dates";
-import { learnedForBlock } from "../lib/plan";
-import { examName, topicNames } from "../lib/labels";
+import { isRepeating, learnedForBlock, ruleText } from "../lib/plan";
+import { examName, kindInfo, topicNames } from "../lib/labels";
 import BlockForm from "./BlockForm";
 
 export default function BlockDetail({ occ, onClose }: { occ: Occurrence; onClose: () => void }) {
-  const { exams, sessions, timer, setTimer, addSession, deleteSession, toggleDone } = useStore();
+  const { exams, sessions, timer, setTimer, addSession, deleteSession, toggleDone, customKinds, skipOccurrence, deleteBlock } = useStore();
   const [edit, setEdit] = useState(false);
   const [manual, setManual] = useState("");
   const b = occ.block;
@@ -38,9 +38,10 @@ export default function BlockDetail({ occ, onClose }: { occ: Occurrence; onClose
 
   return (
     <div className="detail">
-      <span className="pill" style={{ ["--c" as string]: KIND_COLOR[b.kind] }}>{KIND_LABEL[b.kind]}</span>
+      {(() => { const k = kindInfo(b.kind, b.custom_kind_id, customKinds); return <span className="pill" style={{ ["--c" as string]: k.color }}>{k.label}</span>; })()}
       <h3>{b.title}</h3>
-      <p className="muted">{longDate(occ.date)} · {hhmm(b.start_time)}–{hhmm(b.end_time)}{b.repeat_weekdays?.length ? " · wöchentlich" : ""}</p>
+      <p className="muted">{longDate(occ.date)} · {hhmm(b.start_time)}–{hhmm(b.end_time)}</p>
+      {isRepeating(b) && <p className="muted small">↻ {ruleText(b)}</p>}
       {exam && <p>Klausur: <b>{examName(exam)}</b>{topics && <> · {topics}</>}</p>}
 
       {study && (
@@ -54,6 +55,11 @@ export default function BlockDetail({ occ, onClose }: { occ: Occurrence; onClose
         <button className={"btn" + (occ.done ? "" : " primary")} onClick={() => toggleDone(b, occ.date)}>{occ.done ? "✓ Erledigt (rückgängig)" : "✓ Abhaken"}</button>
         {study && <button className="btn primary" onClick={start}>▶ Timer starten</button>}
         <button className="btn ghost" onClick={() => setEdit(true)}>Bearbeiten</button>
+        {isRepeating(b) ? (
+          <button className="btn danger" onClick={async () => { if (window.confirm("Nur diesen einen Termin am " + longDate(occ.date) + " löschen? Die anderen Wiederholungen bleiben.") && (await skipOccurrence(b, occ.date))) onClose(); }}>Nur diesen Tag löschen</button>
+        ) : (
+          <button className="btn danger" onClick={async () => { if (window.confirm("Diesen Eintrag löschen?") && (await deleteBlock(b.id))) onClose(); }}>Löschen</button>
+        )}
       </div>
 
       {study && (

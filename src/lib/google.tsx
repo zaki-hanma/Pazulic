@@ -5,6 +5,9 @@ import { supabase } from "./supabase";
 import { useStore } from "./store";
 import { addDays, today, ymd } from "./dates";
 
+/** Datum für „alle Termine dieser Serie ausblenden“. */
+export const HIDE_ALL = "2000-01-01";
+
 export interface GEvent { uid: string; date: string; start: string; end: string; allDay: boolean; title: string }
 
 interface G { byDate: Map<string, GEvent[]>; loading: boolean; error: string | null; lastLoad: Date | null; reload: () => void }
@@ -88,12 +91,16 @@ export function GoogleProvider({ children }: { children: ReactNode }) {
     return () => { window.clearInterval(t); document.removeEventListener("visibilitychange", vis); };
   }, [load, on]);
 
+  const { googleMarks } = useStore();
   const byDate = useMemo(() => {
+    const hiddenAll = new Set(googleMarks.filter((x) => x.hidden && x.date === HIDE_ALL).map((x) => x.uid));
+    const hiddenOne = new Set(googleMarks.filter((x) => x.hidden && x.date !== HIDE_ALL).map((x) => x.uid + "|" + x.date));
     const m = new Map<string, GEvent[]>();
-    for (const e of events) { const l = m.get(e.date) ?? []; l.push(e); m.set(e.date, l); }
+    for (const e of events) {
+      if (hiddenAll.has(e.uid) || hiddenOne.has(e.uid + "|" + e.date)) continue; const l = m.get(e.date) ?? []; l.push(e); m.set(e.date, l); }
     for (const l of m.values()) l.sort((a, b) => a.start.localeCompare(b.start));
     return m;
-  }, [events]);
+  }, [events, googleMarks]);
 
   return <Ctx.Provider value={{ byDate, loading, error, lastLoad, reload: load }}>{children}</Ctx.Provider>;
 }

@@ -2,6 +2,7 @@
 import { supabase } from "./supabase";
 
 const TABLES: { name: string; conflict: string }[] = [
+  { name: "custom_kinds", conflict: "id" },
   { name: "exams", conflict: "id" },
   { name: "plan_blocks", conflict: "id" },
   { name: "study_sessions", conflict: "id" },
@@ -9,6 +10,7 @@ const TABLES: { name: string; conflict: string }[] = [
   { name: "subjects", conflict: "user_id,school_year,key" },
   { name: "grades", conflict: "id" },
   { name: "report_grades", conflict: "user_id,school_year,subject" },
+  { name: "google_marks", conflict: "user_id,uid,date" },
 ];
 
 export async function downloadBackup(): Promise<{ ok: boolean; count: number }> {

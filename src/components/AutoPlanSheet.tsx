@@ -49,7 +49,7 @@ export default function AutoPlanSheet({ exam, onClose }: { exam: Exam; onClose: 
     setBusy(true);
     const ok = await addBlocks(items.map((p) => ({
       exam_id: exam.id, date: p.date, start_time: p.start, end_time: p.end, kind: p.kind, title: p.title,
-      topic_ids: p.topic_ids, planned_minutes: p.planned, repeat_weekdays: null,
+      topic_ids: p.topic_ids, planned_minutes: p.planned, repeat_weekdays: null, repeat_rule: null, custom_kind_id: null,
     })));
     setBusy(false);
     if (ok) setDone(true);

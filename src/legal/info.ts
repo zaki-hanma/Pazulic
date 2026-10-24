@@ -1,7 +1,7 @@
-// Angaben für Impressum und Datenschutz. ADRESSE bitte ergänzen (Pflicht im Impressum).
+// Angaben für Impressum und Datenschutz.
 export const OWNER = {
   name: "Zakaria Ghulami",
-  street: "", // z. B. „Musterstraße 1“
-  city: "",   // z. B. „21614 Buxtehude“
+  street: "Bahnhofstraße 42",
+  city: "21423 Winsen (Luhe)",
   email: "zakariaghulami238@gmail.com",
 };

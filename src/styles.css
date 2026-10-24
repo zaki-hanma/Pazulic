@@ -305,3 +305,12 @@ input:disabled { opacity: .7; }
 .legal-card ul { padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
 .legal-links { text-align: center; margin-top: 10px; }
 .legal-links a { color: var(--muted); }
+.newkind { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,.05); }
+.colors { display: flex; flex-wrap: wrap; gap: 8px; }
+.color { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; }
+.color.on { border-color: #fff; box-shadow: 0 0 0 2px var(--bg) inset; }
+.repeat-box { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,.05); }
+.repeat-box .inline { align-items: center; }
+input.num { width: 64px; flex: none !important; text-align: center; }
+.form-actions { flex-wrap: wrap; }
+.gtag { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 4px; background: #E8ECF3; color: #1a2130; font-size: .62rem; font-weight: 800; margin-right: 2px; vertical-align: 1px; }

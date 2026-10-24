@@ -4,7 +4,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from "react";
 import type { Session as AuthSession } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
-import type { Block, Exam, Goal, Grade, ReportGrade, Session, Settings, SubjectRow, TimerState } from "./types";
+import type { Block, CustomKind, Exam, Goal, GoogleMark, Grade, ReportGrade, Session, Settings, SubjectRow, TimerState } from "./types";
+import { isRepeating } from "./plan";
 
 interface Store {
   auth: AuthSession | null;
@@ -17,6 +18,8 @@ interface Store {
   grades: Grade[];
   reportGrades: ReportGrade[];
   subjects: SubjectRow[];
+  customKinds: CustomKind[];
+  googleMarks: GoogleMark[];
   settings: Settings;
   timer: TimerState | null;
   error: string | null;
@@ -27,7 +30,11 @@ interface Store {
   deleteGoal: (id: string) => Promise<boolean>;
   saveBlock: (b: Partial<Block> & Pick<Block, "date" | "start_time" | "end_time" | "kind">) => Promise<boolean>;
   deleteBlock: (id: string) => Promise<boolean>;
-  addBlocks: (rows: Omit<Block, "id" | "user_id" | "created_at" | "done" | "completed_dates">[]) => Promise<boolean>;
+  addBlocks: (rows: (Partial<Block> & Pick<Block, "date" | "start_time" | "end_time" | "kind">)[]) => Promise<boolean>;
+  skipOccurrence: (b: Block, date: string) => Promise<boolean>;
+  saveCustomKind: (k: { id?: string; name: string; color: string }) => Promise<CustomKind | null>;
+  deleteCustomKind: (id: string) => Promise<boolean>;
+  saveGoogleMark: (m: Partial<GoogleMark> & { uid: string; date: string }) => Promise<boolean>;
   toggleDone: (b: Block, date: string) => Promise<void>;
   addSession: (s: Omit<Session, "id" | "user_id" | "created_at">) => Promise<boolean>;
   deleteSession: (id: string) => Promise<boolean>;
@@ -62,6 +69,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [grades, setGrades] = useState<Grade[]>([]);
   const [reportGrades, setReportGrades] = useState<ReportGrade[]>([]);
   const [subjects, setSubjects] = useState<SubjectRow[]>([]);
+  const [customKinds, setCustomKinds] = useState<CustomKind[]>([]);
+  const [googleMarks, setGoogleMarks] = useState<GoogleMark[]>([]);
   const [settings, setSettingsState] = useState<Settings>({ google_ical_url: null, google_enabled: false });
   const [timer, setTimerState] = useState<TimerState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +86,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadAll = useCallback(async () => {
     if (!uid || loading.current) return;
     loading.current = true;
-    const [e, b, s, t, g, gr, rg, st, sj] = await Promise.all([
+    const [e, b, s, t, g, gr, rg, st, sj, ck, gm] = await Promise.all([
       supabase.from("exams").select("*").order("date"),
       supabase.from("plan_blocks").select("*"),
       supabase.from("study_sessions").select("*"),
@@ -87,12 +96,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       supabase.from("report_grades").select("*"),
       supabase.from("user_settings").select("google_ical_url, google_enabled").maybeSingle(),
       supabase.from("subjects").select("*").order("sort"),
+      supabase.from("custom_kinds").select("*").order("created_at"),
+      supabase.from("google_marks").select("*"),
     ]);
     loading.current = false;
-    if (e.error || b.error || s.error || g.error || gr.error || rg.error || sj.error) { setError("Daten konnten nicht geladen werden. Bitte später nochmal öffnen."); return; }
+    if (e.error || b.error || s.error || g.error || gr.error || rg.error || sj.error || ck.error || gm.error) { setError("Daten konnten nicht geladen werden. Bitte später nochmal öffnen."); return; }
     setExams(e.data as Exam[]); setBlocks(b.data as Block[]); setSessions(s.data as Session[]); setGoals(g.data as Goal[]);
     setGrades((gr.data as Grade[]).map((x) => ({ ...x, points: x.points == null ? null : Number(x.points), max_points: x.max_points == null ? null : Number(x.max_points) })));
     setReportGrades(rg.data as ReportGrade[]);
+    setCustomKinds(ck.data as CustomKind[]); setGoogleMarks(gm.data as GoogleMark[]);
     setSubjects((sj.data as SubjectRow[]).map((x) => ({ ...x, hours: Number(x.hours) })));
     if (st.data) setSettingsState(st.data as Settings);
     setTimerState((t.data as TimerState) ?? null);
@@ -101,7 +113,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Einmal laden, danach live über Realtime (Handy und Laptop bleiben synchron).
   useEffect(() => {
-    if (!uid) { setReady(false); setExams([]); setBlocks([]); setSessions([]); setGoals([]); setGrades([]); setReportGrades([]); setSubjects([]); setTimerState(null); return; }
+    if (!uid) { setReady(false); setExams([]); setBlocks([]); setSessions([]); setGoals([]); setGrades([]); setReportGrades([]); setSubjects([]); setCustomKinds([]); setGoogleMarks([]); setTimerState(null); return; }
     loadAll();
     let t: number | undefined;
     const reload = () => { window.clearTimeout(t); t = window.setTimeout(loadAll, 300); };
@@ -112,6 +124,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "long_goals", filter: `user_id=eq.${uid}` }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "grades", filter: `user_id=eq.${uid}` }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "report_grades", filter: `user_id=eq.${uid}` }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "custom_kinds", filter: `user_id=eq.${uid}` }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "google_marks", filter: `user_id=eq.${uid}` }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "subjects", filter: `user_id=eq.${uid}` }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_settings", filter: `user_id=eq.${uid}` }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "timer_state", filter: `user_id=eq.${uid}` }, reload)
@@ -159,7 +173,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const row = {
       exam_id: x.exam_id ?? null, date: x.date, start_time: x.start_time, end_time: x.end_time, kind: x.kind,
       title: x.title ?? "", topic_ids: x.topic_ids ?? [], planned_minutes: x.planned_minutes ?? 0,
-      repeat_weekdays: x.repeat_weekdays && x.repeat_weekdays.length ? x.repeat_weekdays : null,
+      repeat_weekdays: x.repeat_rule ? null : x.repeat_weekdays && x.repeat_weekdays.length ? x.repeat_weekdays : null,
+      repeat_rule: x.repeat_rule ?? null, custom_kind_id: x.custom_kind_id ?? null,
     };
     const res = x.id ? await supabase.from("plan_blocks").update(row).eq("id", x.id).select().single()
       : await supabase.from("plan_blocks").insert(row).select().single();
@@ -176,6 +191,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
+  const skipOccurrence: Store["skipOccurrence"] = async (b, date) => {
+    const skip_dates = [...new Set([...(b.skip_dates ?? []), date])];
+    setBlocks((p) => p.map((x) => (x.id === b.id ? { ...x, skip_dates } : x)));
+    const { error: err } = await supabase.from("plan_blocks").update({ skip_dates }).eq("id", b.id);
+    if (err) { setError(FAIL); setBlocks((p) => p.map((x) => (x.id === b.id ? b : x))); return false; }
+    return true;
+  };
+
+  const saveCustomKind: Store["saveCustomKind"] = async (k) => {
+    const row = { name: k.name.trim().slice(0, 40), color: k.color };
+    const res = k.id ? await supabase.from("custom_kinds").update(row).eq("id", k.id).select().single()
+      : await supabase.from("custom_kinds").insert(row).select().single();
+    if (res.error) { setError(FAIL); return null; }
+    const saved = res.data as CustomKind;
+    setCustomKinds((p) => [...p.filter((x) => x.id !== saved.id), saved]);
+    return saved;
+  };
+
+  const deleteCustomKind: Store["deleteCustomKind"] = async (id) => {
+    const { error: err } = await supabase.from("custom_kinds").delete().eq("id", id);
+    if (err) { setError("Löschen hat nicht geklappt."); return false; }
+    setCustomKinds((p) => p.filter((x) => x.id !== id));
+    setBlocks((p) => p.map((b) => (b.custom_kind_id === id ? { ...b, custom_kind_id: null } : b)));
+    return true;
+  };
+
+  const saveGoogleMark: Store["saveGoogleMark"] = async (m) => {
+    const old = googleMarks.find((x) => x.uid === m.uid && x.date === m.date);
+    const merged = { done: false, hidden: false, minutes: null, kind: null, custom_kind_id: null, ...old, ...m };
+    const { id: _id, user_id: _u, ...row } = merged as GoogleMark;
+    setGoogleMarks((p) => [...p.filter((x) => !(x.uid === m.uid && x.date === m.date)), { id: old?.id ?? "tmp", ...row } as GoogleMark]);
+    const res = await supabase.from("google_marks").upsert({ ...row, user_id: uid, updated_at: new Date().toISOString() }, { onConflict: "user_id,uid,date" }).select().single();
+    if (res.error) { setError(FAIL); setGoogleMarks((p) => [...p.filter((x) => !(x.uid === m.uid && x.date === m.date)), ...(old ? [old] : [])]); return false; }
+    setGoogleMarks((p) => [...p.filter((x) => !(x.uid === m.uid && x.date === m.date)), res.data as GoogleMark]);
+    return true;
+  };
+
   const deleteBlock: Store["deleteBlock"] = async (id) => {
     const { error: err } = await supabase.from("plan_blocks").delete().eq("id", id);
     if (err) { setError("Löschen hat nicht geklappt."); return false; }
@@ -185,7 +237,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const toggleDone: Store["toggleDone"] = async (b, date) => {
     let patch: Partial<Block>;
-    if (b.repeat_weekdays && b.repeat_weekdays.length) {
+    if (isRepeating(b)) {
       const has = b.completed_dates.includes(date);
       patch = { completed_dates: has ? b.completed_dates.filter((d) => d !== date) : [...b.completed_dates, date] };
     } else patch = { done: !b.done };
@@ -267,10 +319,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const signOut = async () => { await supabase.auth.signOut(); };
 
   const value = useMemo<Store>(() => ({
-    auth, authReady, ready, exams, blocks, sessions, goals, grades, reportGrades, subjects, settings, timer, error, clearError: () => setError(null),
-    saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, addBlocks, toggleDone, addSession, deleteSession, setTimer, saveGrade, deleteGrade, saveReportGrade, saveSettings, saveSubjects, deleteSubject, reloadAll: loadAll, signOut,
+    auth, authReady, ready, exams, blocks, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, settings, timer, error, clearError: () => setError(null),
+    saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, addBlocks, skipOccurrence, saveCustomKind, deleteCustomKind, saveGoogleMark, toggleDone, addSession, deleteSession, setTimer, saveGrade, deleteGrade, saveReportGrade, saveSettings, saveSubjects, deleteSubject, reloadAll: loadAll, signOut,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [auth, authReady, ready, exams, blocks, sessions, goals, grades, reportGrades, subjects, settings, timer, error]);
+  }), [auth, authReady, ready, exams, blocks, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, settings, timer, error]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

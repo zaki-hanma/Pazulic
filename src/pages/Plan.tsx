@@ -3,7 +3,7 @@ import { useStore } from "../lib/store";
 import { addDays, ferienName, holidayName, isoWeekday, longDate, MONTHS, parseYmd, today, WD_SHORT, ymd } from "../lib/dates";
 import { isNow, occurrencesOn } from "../lib/plan";
 import { topicNames } from "../lib/labels";
-import { KIND_COLOR } from "../lib/types";
+import { kindInfo } from "../lib/labels";
 import type { Occurrence } from "../lib/types";
 import OccRow from "../components/OccRow";
 import GRow from "../components/GRow";
@@ -15,7 +15,7 @@ import BlockForm from "../components/BlockForm";
 type View = "liste" | "kalender";
 
 export default function Plan() {
-  const { blocks, exams, toggleDone } = useStore();
+  const { blocks, exams, toggleDone, customKinds } = useStore();
   const [view, setView] = useState<View>(() => { try { return (localStorage.getItem("plan-view") as View) || "liste"; } catch { return "liste"; } });
   const [day, setDay] = useState(today());
   const [month, setMonth] = useState(() => today().slice(0, 7));
@@ -92,7 +92,7 @@ export default function Plan() {
                   <span className="cal-n">{parseYmd(c.d).getDate()}</span>
                   {ex && <span className="cal-exam">{ex}</span>}
                   {hol && <span className="cal-hol">{hol}</span>}
-                  <span className="cal-dots">{c.occ.slice(0, 6).map((o) => <i key={o.block.id} style={{ background: KIND_COLOR[o.block.kind] }} />)}{(google.get(c.d) ?? []).slice(0, 3).map((_, i) => <i key={"g" + i} className="g" />)}</span>
+                  <span className="cal-dots">{c.occ.slice(0, 6).map((o) => <i key={o.block.id} style={{ background: kindInfo(o.block.kind, o.block.custom_kind_id, customKinds).color }} />)}{(google.get(c.d) ?? []).slice(0, 3).map((_, i) => <i key={"g" + i} className="g" />)}</span>
                 </button>
               );
             })}

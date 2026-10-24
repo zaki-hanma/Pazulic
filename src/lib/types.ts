@@ -14,6 +14,25 @@ export interface Block {
   start_time: string; end_time: string; kind: Kind; title: string;
   topic_ids: string[]; planned_minutes: number; done: boolean;
   repeat_weekdays: number[] | null; completed_dates: string[]; created_at?: string;
+  custom_kind_id: string | null; repeat_rule: RepeatRule | null; skip_dates: string[];
+}
+
+/** Wiederholung: täglich / wöchentlich / monatlich / jährlich, jeweils „alle N“. */
+export interface RepeatRule {
+  freq: "daily" | "weekly" | "monthly" | "yearly";
+  interval: number;
+  weekdays?: number[];        // weekly: 1=Mo … 7=So
+  monthMode?: "day" | "nth";  // monthly: am X. Tag oder am n-ten Wochentag
+  monthDay?: number;          // 1–31
+  nth?: number;               // 1–4 oder -1 = letzter
+  nthWeekday?: number;        // 1–7
+  until?: string | null;
+}
+
+export interface CustomKind { id: string; user_id?: string; name: string; color: string }
+export interface GoogleMark {
+  id: string; user_id?: string; uid: string; date: string; done: boolean; hidden: boolean;
+  minutes: number | null; kind: Kind | null; custom_kind_id: string | null;
 }
 
 export interface Session {
