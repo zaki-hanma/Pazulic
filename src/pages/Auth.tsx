@@ -2,6 +2,7 @@ import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import Logo from "../components/Logo";
 import Petals from "../components/Petals";
+import { Link } from "react-router-dom";
 
 export default function Auth() {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -48,6 +49,7 @@ export default function Auth() {
           <input id="pw" type={show ? "text" : "password"} autoComplete={mode === "login" ? "current-password" : "new-password"} value={pw} onChange={(e) => setPw(e.target.value)} required />
           <button type="button" className="eye" onClick={() => setShow((s) => !s)} aria-label={show ? "Passwort verstecken" : "Passwort zeigen"}>{show ? "🙈" : "👁"}</button>
         </div>
+        {mode === "register" && <p className="muted small">Mit der Registrierung akzeptierst du die <Link className="link" to="/datenschutz">Datenschutzerklärung</Link>.</p>}
         {msg && <p className={msg.ok ? "ok" : "err"}>{msg.text}</p>}
         <button className="btn primary big" disabled={busy}>{busy ? "Bitte warten …" : mode === "login" ? "Anmelden" : "Registrieren"}</button>
         <div className="auth-links">
@@ -56,6 +58,7 @@ export default function Auth() {
           </button>
           {mode === "login" && <button type="button" className="link" onClick={reset}>Passwort vergessen?</button>}
         </div>
+        <p className="small legal-links"><Link to="/impressum">Impressum</Link> · <Link to="/datenschutz">Datenschutz</Link></p>
       </form>
     </div>
   );

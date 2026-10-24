@@ -2,9 +2,9 @@ import { useMemo, useState } from "react";
 import { useStore } from "../lib/store";
 import { useGoogle } from "../lib/google";
 import type { Exam } from "../lib/types";
-import { learnFactor, makePlan } from "../lib/autoplan";
+import { defaultStart, learnFactor, makePlan } from "../lib/autoplan";
 import type { Proposal } from "../lib/autoplan";
-import { fmtMin, shortDate, today } from "../lib/dates";
+import { addDays, fmtMin, longDate, shortDate, today } from "../lib/dates";
 import { isStudy } from "../lib/types";
 import Sheet from "./Sheet";
 
@@ -20,6 +20,8 @@ export default function AutoPlanSheet({ exam, onClose }: { exam: Exam; onClose: 
   const suggested = Math.max(0, Math.round((base * lf.factor - futurePlanned) / 30) * 30);
 
   const saved = (() => { try { return JSON.parse(localStorage.getItem(LS) || "{}"); } catch { return {}; } })();
+  const ds = useMemo(() => defaultStart(exam, exams), [exam, exams]);
+  const [startDate, setStartDate] = useState(ds.date);
   const [hours, setHours] = useState(String(suggested / 60).replace(".", ","));
   const [perDay, setPerDay] = useState<string>(saved.perDay ?? "2");
   const [sWd, setSWd] = useState<string>(saved.sWd ?? "17:00");
@@ -37,7 +39,7 @@ export default function AutoPlanSheet({ exam, onClose }: { exam: Exam; onClose: 
     try { localStorage.setItem(LS, JSON.stringify({ perDay, sWd, sWe, end, free })); } catch { /* egal */ }
     const r = makePlan(exam, blocks, google, {
       targetMin: Math.round(num(hours) * 60), maxPerDayMin: Math.round(num(perDay) * 60), startWeekday: sWd, startWeekend: sWe,
-      endTime: end, freeDays: free, blockMin: 60, gapMin: 30,
+      endTime: end, freeDays: free, blockMin: 60, gapMin: 30, startDate,
     });
     setItems(r.items); setMissing(r.missing);
   }
@@ -70,7 +72,7 @@ export default function AutoPlanSheet({ exam, onClose }: { exam: Exam; onClose: 
         </div>
       ) : (
         <div className="form">
-          <p className="muted small">Der Auto-Plan sucht freie Zeiten zwischen heute und dem Klausurtag. Er plant um deine Einträge (Arbeit, Schule, Termine, Google) herum. An Tagen mit Nachhilfe plant er nichts.</p>
+          <p className="muted small">Der Auto-Plan sucht freie Zeiten zwischen dem Start-Tag und dem Klausurtag. Er plant um deine Einträge (Arbeit, Schule, Termine, Google) herum. An Tagen mit Nachhilfe plant er nichts.</p>
           <div className="hint">
             {lf.basis > 0 && lf.factor > 1.05
               ? <>📈 Lerneffekt: Du brauchst {lf.sameSubject ? "in diesem Fach" : "im Schnitt"} <b>{lf.factor.toFixed(1).replace(".", ",")} ×</b> so lange wie geplant.</>
@@ -78,6 +80,9 @@ export default function AutoPlanSheet({ exam, onClose }: { exam: Exam; onClose: 
             {futurePlanned > 0 && <> Schon geplant: {fmtMin(futurePlanned)}.</>}
             <> → <b>{fmtMin(suggested)}</b> zusätzlich.</>
           </div>
+          <label className="lbl" htmlFor="ap-start">Ab wann planen?</label>
+          <input id="ap-start" type="date" value={startDate} min={today()} max={addDays(exam.date, -1)} onChange={(e) => setStartDate(e.target.value)} />
+          <p className="muted small">{ds.after ? <>Vorher hast du die Klausur <b>{ds.after.short_name || ds.after.subject}</b> ({longDate(ds.after.date)}). Darum plant der Auto-Plan erst danach.</> : "Vor dieser Klausur hast du keine andere Klausur."}</p>
           <div className="row3">
             <div><label className="lbl" htmlFor="ap-h">Ziel (Std.)</label><input id="ap-h" inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} /></div>
             <div><label className="lbl" htmlFor="ap-d">max. pro Tag (Std.)</label><input id="ap-d" inputMode="decimal" value={perDay} onChange={(e) => setPerDay(e.target.value)} /></div>

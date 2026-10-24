@@ -11,6 +11,7 @@ export interface AutoOptions {
   startWeekend: string;     // z. B. "10:00"
   endTime: string;          // z. B. "21:30"
   freeDays: number[];       // Wochentage ohne Lernen (1=Mo … 7=So)
+  startDate: string;        // ab wann geplant wird (z. B. Tag nach der vorherigen Klausur)
   blockMin: number;         // Länge eines Lernblocks inkl. Pausen (60 = 2 Pomodoros)
   gapMin: number;           // Abstand zwischen zwei Lernblöcken (für Alltag/Essen)
 }
@@ -45,7 +46,7 @@ const blockedDay = (date: string, blocks: Block[]) => occurrencesOn(blocks, date
 export function makePlan(exam: Exam, blocks: Block[], google: Map<string, GEvent[]>, o: AutoOptions, now = new Date()): { items: Proposal[]; missing: number } {
   const t = today();
   const days: string[] = [];
-  for (let d = t; d < exam.date; d = addDays(d, 1)) {
+  for (let d = o.startDate > t ? o.startDate : t; d < exam.date; d = addDays(d, 1)) {
     if (o.freeDays.includes(isoWeekday(d)) || blockedDay(d, blocks)) continue;
     days.push(d);
   }
@@ -119,6 +120,13 @@ export function makePlan(exam: Exam, blocks: Block[], google: Map<string, GEvent
     return { date: r.date, start: toT(r.start), end: toT(r.end), kind: "lernen", title: tp.short || tp.name, topic_ids: tp.id ? [tp.id] : [], planned: lm };
   });
   return { items, missing: Math.max(0, need - total) };
+}
+
+/** Erster Planungstag: der Tag nach der letzten Klausur, die vor dieser Klausur liegt (sonst heute). */
+export function defaultStart(exam: Exam, exams: Exam[]): { date: string; after: Exam | null } {
+  const t = today();
+  const before = exams.filter((e) => e.id !== exam.id && e.date >= t && e.date < exam.date).sort((a, b) => b.date.localeCompare(a.date))[0];
+  return before ? { date: addDays(before.date, 1), after: before } : { date: t, after: null };
 }
 
 /** Lerneffekt: Wie viel länger (oder kürzer) brauchst du im Schnitt? Aus vergangenen Klausuren. */

@@ -25,7 +25,7 @@ function Alltag({ blocks }: { blocks: Block[] }) {
     for (let d = month + "-01"; d.startsWith(month) && d <= t; d = addDays(d, 1)) {
       days++;
       for (const o of occurrencesOn(blocks, d)) {
-        if (isStudy(o.block.kind)) continue;
+        if (isStudy(o.block.kind) || !o.done) continue; // nur abgehakte Einträge = wirklich gemacht
         const e = per.get(o.block.kind) ?? { m: 0, n: 0 };
         e.m += Math.max(0, minutesBetween(o.block.start_time.slice(0, 5), o.block.end_time.slice(0, 5))); e.n++;
         per.set(o.block.kind, e);
@@ -44,9 +44,9 @@ function Alltag({ blocks }: { blocks: Block[] }) {
           <h2>{MONTHS[m - 1]} {y}</h2>
           <button className="icon-btn" onClick={() => shift(1)} aria-label="Monat vor" disabled={month >= t.slice(0, 7)}>›</button>
         </div>
-        {data.days === 0 ? <p className="muted">Dieser Monat hat noch nicht angefangen.</p> : data.rows.length === 0 ? <p className="muted">In diesem Monat gibt es noch keine Alltag-Einträge.</p> : (
+        {data.days === 0 ? <p className="muted">Dieser Monat hat noch nicht angefangen.</p> : data.rows.length === 0 ? <p className="muted">In diesem Monat hast du noch keinen Alltag-Eintrag abgehakt.</p> : (
           <>
-            <p className="muted small">Zeit aus deinem Plan bis heute ({data.days} {data.days === 1 ? "Tag" : "Tage"}) · zusammen {fmtMin(total)}</p>
+            <p className="muted small">Abgehakte Einträge ({data.days} {data.days === 1 ? "Tag" : "Tage"}) · zusammen {fmtMin(total)}</p>
             {data.rows.map((r) => (
               <div key={r.k} className="cmp">
                 <div className="row-between"><b><i className="kdot" style={{ background: KIND_COLOR[r.k] }} />{KIND_LABEL[r.k]}</b><span className="mono small">{fmtMin(r.m)}</span></div>
@@ -57,7 +57,7 @@ function Alltag({ blocks }: { blocks: Block[] }) {
           </>
         )}
       </section>
-      <p className="muted small center">Gezählt wird die geplante Zeit der Einträge (Arbeit, Unterwegs, Termine, Schlafen …). Lernen siehst du im Reiter „Lernen“.</p>
+      <p className="muted small center">Gezählt wird nur, was du im Plan mit ✓ abgehakt hast (Arbeit, Unterwegs, Termine, Schlafen …). Lernen siehst du im Reiter „Lernen“.</p>
     </>
   );
 }
@@ -95,7 +95,9 @@ function Lernen() {
   }), [sessions, weekStart]);
   const maxW = Math.max(60, ...weeks.map((w) => w.m));
 
-  const rows = exams.map((e) => ({ e, ...examProgress(e, blocks, sessions) })).filter((r) => r.planned > 0 || r.learned > 0);
+  const nowD = new Date();
+  const pastBlocks = blocks.filter((b) => !b.repeat_weekdays?.length && new Date(b.date + "T" + b.end_time.slice(0, 5)) <= nowD);
+  const rows = exams.map((e) => ({ e, ...examProgress(e, pastBlocks, sessions) })).filter((r) => r.learned > 0);
   const maxE = Math.max(1, ...rows.map((r) => Math.max(r.planned, r.learned)));
 
   return (
@@ -106,8 +108,9 @@ function Lernen() {
 
       <section className="card">
         <h2>Ziel vs. Ist pro Klausur</h2>
+        <p className="muted small">Ziel = Lernblöcke, die schon vorbei sind. Ist = deine gespeicherte Lernzeit.</p>
         <p className="muted small legend"><i className="lg" style={{ background: "rgba(255,255,255,.35)" }} /> Ziel <i className="lg" style={{ background: "var(--red)" }} /> zu wenig <i className="lg" style={{ background: "var(--green)" }} /> im Plan <i className="lg" style={{ background: "var(--orange)" }} /> mehr gebraucht</p>
-        {rows.length === 0 ? <p className="muted">Noch keine Lernzeit. Starte den Timer bei einem Lernblock!</p> : rows.map((r) => {
+        {rows.length === 0 ? <p className="muted">Noch keine Lernzeit gespeichert. Starte den Timer bei einem Lernblock oder trag die Zeit von Hand ein.</p> : rows.map((r) => {
           const s = status(r.planned, r.learned);
           return (
             <div key={r.e.id} className="cmp">

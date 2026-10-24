@@ -33,6 +33,10 @@ export interface Grade {
   date: string | null; points: number | null; max_points: number | null; grade_text: string | null; created_at?: string;
 }
 export interface ReportGrade { id: string; school_year: string; subject: string; grade: number | null; note: string | null }
+export interface SubjectRow {
+  id: string; user_id?: string; school_year: string; key: string; name: string; hours: number; written: number;
+  area: "ueber" | "bezogen"; merge_into: string | null; sort: number;
+}
 export interface Settings { google_ical_url: string | null; google_enabled: boolean }
 
 export interface Goal { id: string; user_id?: string; title: string; date: string | null; created_at?: string }

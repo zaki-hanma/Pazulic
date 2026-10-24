@@ -1,7 +1,9 @@
 // Noten-Rechnung nach den Bewertungsgrundsätzen der BBS Buxtehude (Stand Juli 2025).
-import type { Grade } from "./types";
+import type { Grade, SubjectRow } from "./types";
 
-export interface Subject { key: string; name: string; hours: number; written: number; area: "ueber" | "bezogen" }
+export interface Subject { key: string; name: string; hours: number; written: number; area: "ueber" | "bezogen"; merge_into?: string | null }
+
+/** Vorlage: BBS Buxtehude, Kaufmann/-frau im E-Commerce. Andere Nutzer legen eigene Fächer an. */
 
 export const SUBJECTS: Subject[] = [
   { key: "Deutsch", name: "Deutsch/Kommunikation", hours: 3, written: 50, area: "ueber" },
@@ -9,7 +11,7 @@ export const SUBJECTS: Subject[] = [
   { key: "Politik", name: "Politik", hours: 4, written: 50, area: "ueber" },
   { key: "Sport", name: "Sport", hours: 1, written: 0, area: "ueber" },
   { key: "Religion", name: "Religion", hours: 1, written: 40, area: "ueber" },
-  { key: "LF0", name: "LF0 Praktische Umsetzung Webshop", hours: 2, written: 0, area: "bezogen" },
+  { key: "LF0", name: "LF0 Praktische Umsetzung Webshop", hours: 2, written: 0, area: "bezogen", merge_into: "LF2" },
   { key: "LF1", name: "LF1 Das Unternehmen präsentieren", hours: 2, written: 50, area: "bezogen" },
   { key: "LF2", name: "LF2 Online-Sortimente & Beschaffung", hours: 2, written: 50, area: "bezogen" },
   { key: "LF3", name: "LF3 Verträge im Online-Vertrieb", hours: 3, written: 50, area: "bezogen" },
@@ -23,7 +25,6 @@ export const SUBJECTS: Subject[] = [
   { key: "LF11", name: "LF11 Gesamtwirtschaftliche Einflüsse", hours: 1, written: 60, area: "bezogen" },
   { key: "LF12", name: "LF12 Berufsbezogene Projekte", hours: 1, written: 60, area: "bezogen" },
 ];
-export const subjectOf = (k: string) => SUBJECTS.find((s) => s.key === k);
 
 export const KIND_NAME: Record<Grade["kind"], string> = { klausur: "Klausur", projekt: "Projekt", sonstige: "sonstige Note", muendlich: "mündlich" };
 
@@ -86,32 +87,35 @@ function rawNote(list: Grade[], sub: Subject) {
   return { w, o, note };
 }
 
-export function subjectResults(grades: Grade[], year: string): SubjectResult[] {
+export function subjectResults(grades: Grade[], year: string, subs: SubjectRow[]): SubjectResult[] {
   const yg = grades.filter((g) => g.school_year === year);
+  const list: Subject[] = subs.filter((x) => x.school_year === year).sort((a, b) => a.sort - b.sort);
   const out: SubjectResult[] = [];
-  for (const sub of SUBJECTS) {
-    const list = yg.filter((g) => g.subject === sub.key);
-    if (!list.length) continue;
-    const r = rawNote(list, sub);
-    out.push({ key: sub.key, subject: sub, count: list.length, written: r.w, oral: r.o, note: r.note });
+  for (const sub of list) {
+    const l = yg.filter((g) => g.subject === sub.key);
+    if (!l.length) continue;
+    const r = rawNote(l, sub);
+    out.push({ key: sub.key, subject: sub, count: l.length, written: r.w, oral: r.o, note: r.note });
   }
-  // Andere (eigene) Fächer
-  for (const k of [...new Set(yg.map((g) => g.subject))].filter((k) => !subjectOf(k))) {
+  // Noten mit Fach, das (noch) nicht in der Fächerliste steht
+  for (const k of [...new Set(yg.map((g) => g.subject))].filter((k) => !list.some((x) => x.key === k))) {
     const sub: Subject = { key: k, name: k, hours: 1, written: 50, area: "bezogen" };
-    const list = yg.filter((g) => g.subject === k);
-    const r = rawNote(list, sub);
-    out.push({ key: k, subject: sub, count: list.length, written: r.w, oral: r.o, note: r.note });
+    const l = yg.filter((g) => g.subject === k);
+    const r = rawNote(l, sub);
+    out.push({ key: k, subject: sub, count: l.length, written: r.w, oral: r.o, note: r.note });
   }
   return out;
 }
 
-/** Zeugnis: LF0 wird 1:1 mit LF2 verrechnet und erscheint nicht eigenständig. */
+/** Zeugnis: Fächer mit „zählt zu“ (z. B. LF0 → LF2) werden 1:1 mit dem Ziel-Fach verrechnet. */
 export function reportSubjects(results: SubjectResult[]): SubjectResult[] {
-  const lf0 = results.find((r) => r.key === "LF0");
-  return results.filter((r) => r.key !== "LF0").map((r) => {
-    if (r.key === "LF2" && lf0?.note != null && r.note != null) return { ...r, note: (r.note + lf0.note) / 2 };
-    return r;
-  }).concat(lf0 && !results.find((r) => r.key === "LF2") ? [{ ...lf0, key: "LF2", subject: subjectOf("LF2")! }] : []);
+  const merged = results.filter((r) => r.subject.merge_into);
+  return results.filter((r) => !r.subject.merge_into).map((r) => {
+    const parts = merged.filter((m) => m.subject.merge_into === r.key && m.note != null);
+    if (!parts.length || r.note == null) return r;
+    const all = [r.note, ...parts.map((p) => p.note!)];
+    return { ...r, note: all.reduce((a, b) => a + b, 0) / all.length };
+  });
 }
 
 /** Bereichsnote: Fachnoten mit 1 Kommastelle, gewichtet nach Sollstunden. */

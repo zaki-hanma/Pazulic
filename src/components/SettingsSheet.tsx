@@ -2,13 +2,18 @@ import { useState } from "react";
 import { useStore } from "../lib/store";
 import { useGoogle } from "../lib/google";
 import Sheet from "./Sheet";
+import { downloadBackup, restoreBackup } from "../lib/backup";
+import { Link } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 
 const OK = /^https:\/\/calendar\.google\.com\/calendar\/ical\/[^\s]+\.ics(\?[^\s]*)?$/;
 /** Link säubern: Leerzeichen/Zeilenumbrüche weg, webcal:// → https:// */
 const clean = (u: string) => u.replace(/\s+/g, "").replace(/^webcals?:\/\//i, "https://").replace(/^http:\/\//i, "https://");
 
 export default function SettingsSheet({ onClose }: { onClose: () => void }) {
-  const { settings, saveSettings, signOut, auth } = useStore();
+  const { settings, saveSettings, signOut, auth, reloadAll } = useStore();
+  const [bmsg, setBmsg] = useState<{ ok: boolean; t: string } | null>(null);
+  const [bbusy, setBbusy] = useState(false);
   const g = useGoogle();
   const [url, setUrl] = useState(settings.google_ical_url ?? "");
   const [show, setShow] = useState(false);
@@ -73,9 +78,36 @@ export default function SettingsSheet({ onClose }: { onClose: () => void }) {
         )}
         {msg && <p className={msg.ok ? "ok" : "err"}>{msg.t}</p>}
 
+        <h3 style={{ marginTop: 18 }}>Sicherung</h3>
+        <p className="muted small">Lade alle deine Daten (Klausuren, Plan, Lernzeiten, Noten …) als Datei herunter. Mach das ab und zu und speichere die Datei z. B. in OneDrive. Mit der Datei kannst du alles wiederherstellen.</p>
+        <div className="detail-actions">
+          <button className="btn primary" disabled={bbusy} onClick={async () => { setBbusy(true); const r = await downloadBackup(); setBbusy(false); setBmsg(r.ok ? { ok: true, t: `✓ Sicherung mit ${r.count} Einträgen heruntergeladen.` } : { ok: false, t: "Sicherung hat nicht geklappt. Prüfe dein Internet." }); }}>⬇ Sicherung herunterladen</button>
+          <label className="btn">
+            ⬆ Sicherung einspielen
+            <input type="file" accept="application/json,.json" hidden onChange={async (e) => {
+              const f = e.target.files?.[0]; e.target.value = "";
+              if (!f || !window.confirm("Sicherung einspielen? Einträge aus der Datei werden wiederhergestellt bzw. überschrieben. Neuere Einträge bleiben.")) return;
+              setBbusy(true); const r = await restoreBackup(f); setBbusy(false);
+              setBmsg(r.ok ? { ok: true, t: `✓ ${r.count} Einträge wiederhergestellt.` } : { ok: false, t: r.msg ?? "Fehler." });
+              if (r.ok || r.count) reloadAll();
+            }} />
+          </label>
+        </div>
+        {bmsg && <p className={bmsg.ok ? "ok" : "err"}>{bmsg.t}</p>}
+
         <h3 style={{ marginTop: 18 }}>Konto</h3>
         <p className="muted small">Angemeldet als {auth?.user.email}</p>
-        <div className="detail-actions"><button className="btn" onClick={signOut}>Abmelden</button></div>
+        <div className="detail-actions">
+          <button className="btn" onClick={signOut}>Abmelden</button>
+          <button className="btn danger" onClick={async () => {
+            const w = window.prompt("Konto löschen? ALLE deine Daten werden endgültig gelöscht. Tipp: Lade vorher eine Sicherung herunter.\n\nSchreib LÖSCHEN zum Bestätigen:");
+            if (w?.trim().toUpperCase() !== "LÖSCHEN") return;
+            const { error } = await supabase.functions.invoke("delete-account", { method: "POST" });
+            if (error) { setBmsg({ ok: false, t: "Konto löschen hat nicht geklappt. Bitte später nochmal." }); return; }
+            await signOut();
+          }}>Konto löschen</button>
+        </div>
+        <p className="small legal-links"><Link to="/impressum" onClick={onClose}>Impressum</Link> · <Link to="/datenschutz" onClick={onClose}>Datenschutz</Link></p>
       </div>
     </Sheet>
   );

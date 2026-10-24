@@ -1,16 +1,17 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../lib/store";
-import type { Grade, GradeKind } from "../lib/types";
+import type { Grade, GradeKind, SubjectRow } from "../lib/types";
 import {
   KIND_NAME, SUBJECTS, WORD, areaNote, currentYear, fmt1, fmtNum, gradeColor, gradeValue, pct, reportSubjects,
-  roundGrade, subjectOf, subjectResults, yearLabel,
+  roundGrade, subjectResults, yearLabel,
 } from "../lib/grades";
 import { shortDate } from "../lib/dates";
 import Sheet from "../components/Sheet";
 
 function GradeForm({ year, grade, onDone }: { year: string; grade?: Grade; onDone: () => void }) {
-  const { saveGrade, deleteGrade } = useStore();
-  const [subject, setSubject] = useState(grade?.subject ?? "LF5");
+  const { saveGrade, deleteGrade, subjects } = useStore();
+  const subs = subjects.filter((x) => x.school_year === year).sort((a, b) => a.sort - b.sort);
+  const [subject, setSubject] = useState(grade?.subject ?? subs[0]?.key ?? "");
   const [title, setTitle] = useState(grade?.title ?? "");
   const [kind, setKind] = useState<GradeKind>(grade?.kind ?? "klausur");
   const [date, setDate] = useState(grade?.date ?? "");
@@ -29,6 +30,7 @@ function GradeForm({ year, grade, onDone }: { year: string; grade?: Grade; onDon
     // Max. Punkte leer → die Zahl ist direkt die Note
     if (m == null && p != null && !t) { t = String(p).replace(".", ","); p = null; }
     if (p == null && !t) { setMsg("Bitte Punkte oder eine Note eintragen."); return; }
+    if (!subject) { setMsg("Lege zuerst deine Fächer an (Knopf „Fächer“)."); return; }
     setBusy(true);
     const ok = await saveGrade({ id: grade?.id, school_year: year, subject, title: title.trim() || KIND_NAME[kind], kind, date: date || null, points: p, max_points: m, grade_text: t });
     setBusy(false);
@@ -39,7 +41,8 @@ function GradeForm({ year, grade, onDone }: { year: string; grade?: Grade; onDon
     <form className="form" onSubmit={submit}>
       <label className="lbl" htmlFor="n-s">Fach / Lernfeld</label>
       <select id="n-s" value={subject} onChange={(e) => setSubject(e.target.value)}>
-        {SUBJECTS.map((s) => <option key={s.key} value={s.key}>{s.name}</option>)}
+        {subs.map((s) => <option key={s.key} value={s.key}>{s.name}</option>)}
+        {grade && !subs.some((x) => x.key === grade.subject) && <option value={grade.subject}>{grade.subject}</option>}
       </select>
       <label className="lbl" htmlFor="n-t">Name der Leistung</label>
       <input id="n-t" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="z. B. Klausur 1 (Kaufvertrag)" />
@@ -67,9 +70,10 @@ function GradeForm({ year, grade, onDone }: { year: string; grade?: Grade; onDon
 }
 
 function ReportForm({ year, onDone }: { year: string; onDone: () => void }) {
-  const { reportGrades, saveReportGrade } = useStore();
-  const keys = [...SUBJECTS.filter((s) => s.key !== "LF0").map((s) => s.key), "BEREICH_UEBERGREIFEND", "BEREICH_BEZOGEN"];
-  const label = (k: string) => (k === "BEREICH_UEBERGREIFEND" ? "Berufsübergreifend (Bereich)" : k === "BEREICH_BEZOGEN" ? "Berufsbezogen (Bereich)" : subjectOf(k)?.name ?? k);
+  const { reportGrades, saveReportGrade, subjects } = useStore();
+  const subs = subjects.filter((x) => x.school_year === year && !x.merge_into).sort((a, b) => a.sort - b.sort);
+  const keys = [...subs.map((s) => s.key), "BEREICH_UEBERGREIFEND", "BEREICH_BEZOGEN"];
+  const label = (k: string) => (k === "BEREICH_UEBERGREIFEND" ? "Berufsübergreifend (Bereich)" : k === "BEREICH_BEZOGEN" ? "Berufsbezogen (Bereich)" : subs.find((x) => x.key === k)?.name ?? k);
   const init = Object.fromEntries(keys.map((k) => [k, String(reportGrades.find((r) => r.school_year === year && r.subject === k)?.grade ?? "")]));
   const [vals, setVals] = useState<Record<string, string>>(init);
   const [busy, setBusy] = useState(false);
@@ -99,6 +103,76 @@ function ReportForm({ year, onDone }: { year: string; onDone: () => void }) {
   );
 }
 
+type Draft = Omit<SubjectRow, "id" | "user_id"> & { id?: string };
+
+function SubjectsForm({ year, years, onDone }: { year: string; years: string[]; onDone: () => void }) {
+  const { subjects, saveSubjects, deleteSubject, grades } = useStore();
+  const mine = subjects.filter((x) => x.school_year === year).sort((a, b) => a.sort - b.sort);
+  const [rows, setRows] = useState<Draft[]>(mine.map((x) => ({ ...x })));
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const prev = years.filter((y) => y < year).sort().pop();
+  const upd = (i: number, patch: Partial<Draft>) => setRows((r) => r.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const add = (d?: Partial<Draft>) => setRows((r) => [...r, { school_year: year, key: "", name: "", hours: 2, written: 50, area: "bezogen", merge_into: null, sort: (r[r.length - 1]?.sort ?? 0) + 1, ...d }]);
+  const fill = (list: Draft[]) => setRows((r) => [...r, ...list.filter((x) => !r.some((y) => y.key === x.key)).map((x, i) => ({ ...x, id: undefined, school_year: year, sort: (r[r.length - 1]?.sort ?? 0) + i + 1 }))]);
+
+  async function remove(i: number) {
+    const r = rows[i];
+    const n = grades.filter((g) => g.school_year === year && g.subject === r.key).length;
+    if (n && !window.confirm(`Zu „${r.name}“ gibt es ${n} Noten. Das Fach trotzdem entfernen? (Die Noten bleiben gespeichert.)`)) return;
+    if (r.id && !(await deleteSubject(r.id))) return;
+    setRows((x) => x.filter((_, j) => j !== i));
+  }
+
+  async function save() {
+    const clean = rows.map((r) => ({ ...r, key: (r.key || r.name).trim().slice(0, 20), name: r.name.trim() || r.key.trim() })).filter((r) => r.key);
+    const keys = clean.map((r) => r.key);
+    if (new Set(keys).size !== keys.length) { setMsg("Jedes Kürzel darf nur einmal vorkommen."); return; }
+    setBusy(true);
+    const ok = await saveSubjects(clean.map((r, i) => ({ id: r.id, school_year: year, key: r.key, name: r.name, hours: Number(r.hours) || 0, written: Math.min(100, Math.max(0, Number(r.written) || 0)), area: r.area, merge_into: r.merge_into || null, sort: i + 1 })));
+    setBusy(false);
+    if (ok) onDone();
+  }
+
+  return (
+    <div className="form">
+      <p className="muted small">Kürzel = kurzer Name (z. B. „LF5“ oder „Deutsch“). Stunden = Unterrichtsstunden pro Woche (für die Gewichtung). Schriftlich % = wie viel Klausuren zählen, der Rest ist mündlich.</p>
+      <div className="detail-actions">
+        {prev && <button className="btn small" onClick={() => fill(subjects.filter((x) => x.school_year === prev))}>Aus {yearLabel(prev)} übernehmen</button>}
+        <button className="btn small" onClick={() => fill(SUBJECTS.map((x, i) => ({ ...x, merge_into: x.merge_into ?? null, school_year: year, sort: i })))}>Vorlage E-Commerce (BBS Buxtehude)</button>
+      </div>
+      <div className="subj-list">
+        {rows.map((r, i) => (
+          <div key={r.id ?? "n" + i} className="subj">
+            <div className="subj-top">
+              <input aria-label="Kürzel" className="subj-key" value={r.key} disabled={!!r.id} onChange={(e) => upd(i, { key: e.target.value })} placeholder="Kürzel" />
+              <input aria-label="Name" value={r.name} onChange={(e) => upd(i, { name: e.target.value })} placeholder="Name des Fachs" />
+              <button className="icon-btn" aria-label="Fach entfernen" onClick={() => remove(i)}>✕</button>
+            </div>
+            <div className="subj-bottom">
+              <label>Std.<input inputMode="decimal" value={String(r.hours).replace(".", ",")} onChange={(e) => upd(i, { hours: Number(e.target.value.replace(",", ".")) || 0 })} /></label>
+              <label>schriftl. %<input inputMode="numeric" value={r.written} onChange={(e) => upd(i, { written: Number(e.target.value) || 0 })} /></label>
+              <label>Bereich
+                <select value={r.area} onChange={(e) => upd(i, { area: e.target.value as Draft["area"] })}>
+                  <option value="bezogen">berufsbezogen</option><option value="ueber">übergreifend</option>
+                </select>
+              </label>
+              <label>zählt zu
+                <select value={r.merge_into ?? ""} onChange={(e) => upd(i, { merge_into: e.target.value || null })}>
+                  <option value="">–</option>{rows.filter((x) => x.key && x.key !== r.key).map((x) => <option key={x.key} value={x.key}>{x.key}</option>)}
+                </select>
+              </label>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button className="btn ghost small" onClick={() => add()}>+ Fach</button>
+      {msg && <p className="err">{msg}</p>}
+      <div className="form-actions"><button className="btn primary" onClick={save} disabled={busy}>{busy ? "Speichert …" : "Speichern"}</button></div>
+    </div>
+  );
+}
+
 function Cmp({ prog, real }: { prog: number | null; real: number | null | undefined }) {
   if (prog == null || real == null) return null;
   if (prog === real) return <span className="pill" style={{ ["--c" as string]: "var(--green)" }}>passt</span>;
@@ -106,15 +180,17 @@ function Cmp({ prog, real }: { prog: number | null; real: number | null | undefi
 }
 
 export default function Noten() {
-  const { grades, reportGrades } = useStore();
+  const { grades, reportGrades, subjects } = useStore();
+  const [subsOpen, setSubsOpen] = useState(false);
   const cur = currentYear();
-  const years = useMemo(() => [...new Set([...grades.map((g) => g.school_year), cur])].sort(), [grades, cur]);
+  const years = useMemo(() => [...new Set([...grades.map((g) => g.school_year), ...subjects.map((x) => x.school_year), cur])].sort(), [grades, subjects, cur]);
   const [year, setYear] = useState(cur);
   const [edit, setEdit] = useState<Grade | "new" | null>(null);
   const [report, setReport] = useState(false);
   const archive = year < cur;
 
-  const results = useMemo(() => subjectResults(grades, year), [grades, year]);
+  const results = useMemo(() => subjectResults(grades, year, subjects), [grades, year, subjects]);
+  const yearSubs = subjects.filter((x) => x.school_year === year);
   const rep = useMemo(() => reportSubjects(results), [results]);
   const ueber = rep.filter((r) => r.subject.area === "ueber");
   const bez = rep.filter((r) => r.subject.area === "bezogen");
@@ -152,7 +228,10 @@ export default function Noten() {
     <div className="page">
       <header className="page-head row-between">
         <h1>Noten</h1>
-        <button className="btn primary small" onClick={() => setEdit("new")}>+ Note</button>
+        <div className="detail-actions" style={{ margin: 0 }}>
+          <button className="btn small" onClick={() => setSubsOpen(true)}>Fächer</button>
+          <button className="btn primary small" onClick={() => (yearSubs.length ? setEdit("new") : setSubsOpen(true))}>+ Note</button>
+        </div>
       </header>
 
       <div className="seg wide">
@@ -162,6 +241,14 @@ export default function Noten() {
           </button>
         ))}
       </div>
+
+      {yearSubs.length === 0 && (
+        <section className="card">
+          <h2>Deine Fächer für {yearLabel(year)}</h2>
+          <p>Jede Schule und jeder Beruf hat andere Fächer. Lege zuerst deine Fächer an: Name, Stunden pro Woche und wie viel schriftlich und mündlich zählt.</p>
+          <button className="btn primary" onClick={() => setSubsOpen(true)}>Fächer anlegen</button>
+        </section>
+      )}
 
       <section className="card total-card">
         <span className="muted small">Gesamtschnitt {yearLabel(year)}</span>
@@ -227,6 +314,7 @@ export default function Noten() {
       </section>
 
       {edit && <Sheet title={edit === "new" ? "Neue Note" : "Note bearbeiten"} onClose={() => setEdit(null)}><GradeForm year={year} grade={edit === "new" ? undefined : edit} onDone={() => setEdit(null)} /></Sheet>}
+      {subsOpen && <Sheet title={`Fächer ${yearLabel(year)}`} onClose={() => setSubsOpen(false)}><SubjectsForm year={year} years={years} onDone={() => setSubsOpen(false)} /></Sheet>}
       {report && <Sheet title={`Zeugnis ${yearLabel(year)}`} onClose={() => setReport(false)}><ReportForm year={year} onDone={() => setReport(false)} /></Sheet>}
     </div>
   );

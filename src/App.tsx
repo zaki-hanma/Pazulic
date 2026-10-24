@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Datenschutz, Impressum } from "./legal/Legal";
 import { useStore } from "./lib/store";
 import Layout from "./components/Layout";
 import Auth from "./pages/Auth";
@@ -13,6 +14,9 @@ import { GoogleProvider } from "./lib/google";
 
 export default function App() {
   const { auth, authReady, ready } = useStore();
+  const { pathname } = useLocation();
+  if (pathname === "/impressum") return <Impressum />;
+  if (pathname === "/datenschutz") return <Datenschutz />;
   if (!authReady) return <Splash />;
   if (!auth) return <Auth />;
   if (!ready) return <Splash />;
