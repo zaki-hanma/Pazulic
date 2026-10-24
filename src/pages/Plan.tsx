@@ -61,9 +61,8 @@ export default function Plan() {
               const pd = parseYmd(d);
               const mark = [holidayName(d) ? "hol" : "", ferienName(d) ? "fer" : ""].join(" ").trim();
               return (
-                <button key={d} className={"wd" + (d === day ? " on" : "") + (d === t ? " today" : "") + (mark ? " " + mark : "")} onClick={() => setDay(d)}>
+                <button key={d} className={"wd" + (d === day ? " on" : "") + (d === t ? " today" : "") + (mark ? " " + mark : "") + (examDates.has(d) ? " exam" : "")} onClick={() => setDay(d)}>
                   <small>{WD_SHORT[pd.getDay()]}</small><b>{pd.getDate()}</b>
-                  {examDates.has(d) && <i className="exam-dot" />}
                 </button>
               );
             })}
