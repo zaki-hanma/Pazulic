@@ -16,6 +16,7 @@ export interface Block {
   repeat_weekdays: number[] | null; completed_dates: string[]; created_at?: string;
   custom_kind_id: string | null; repeat_rule: RepeatRule | null; skip_dates: string[];
   remind_minutes?: number | null;
+  deleted_at?: string | null;
 }
 
 /** Wiederholung: täglich / wöchentlich / monatlich / jährlich, jeweils „alle N“. */
@@ -34,7 +35,7 @@ export interface GoogleRule { id: string; match: string; kind: Kind | null; cust
 export interface CustomKind { id: string; user_id?: string; name: string; color: string; remind_minutes?: number | null }
 export interface GoogleMark {
   id: string; user_id?: string; uid: string; date: string; done: boolean; hidden: boolean;
-  minutes: number | null; kind: Kind | null; custom_kind_id: string | null;
+  minutes: number | null; kind: Kind | null; custom_kind_id: string | null; title?: string | null;
 }
 
 export interface Session {

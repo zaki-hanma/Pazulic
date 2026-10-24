@@ -44,7 +44,8 @@ function Alltag({ blocks }: { blocks: Block[] }) {
     for (const mk of googleMarks) {
       if (!mk.done || mk.hidden || !mk.date.startsWith(month) || mk.date > t) continue;
       const ev = (google.get(mk.date) ?? []).find((x) => x.uid === mk.uid);
-      const min = mk.minutes ?? (ev ? gDuration(ev) : 0);
+      if (!ev) continue; // ausgeblendet/gelöscht oder nicht mehr in Google → nicht mitzählen
+      const min = mk.minutes ?? gDuration(ev);
       const gk = googleKind(ev?.title ?? "", mk, googleRules);
       add(gk.kind, gk.custom, min);
     }

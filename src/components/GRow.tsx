@@ -63,10 +63,10 @@ function GDetail({ ev, onClose }: { ev: GEvent; onClose: () => void }) {
 
       <label className="lbl">Aus Pazulic entfernen</label>
       <div className="detail-actions">
-        <button className="btn danger" onClick={async () => { if (window.confirm("Diesen Termin in Pazulic ausblenden? In Google bleibt er.") && (await save({ hidden: true }))) onClose(); }}>Nur diesen Tag</button>
-        <button className="btn danger" onClick={async () => { if (window.confirm("ALLE Termine mit diesem Namen/dieser Serie in Pazulic ausblenden? In Google bleiben sie.") && (await saveGoogleMark({ uid: ev.uid, date: HIDE_ALL, hidden: true }))) onClose(); }}>Alle aus dieser Serie</button>
+        <button className="btn danger" onClick={async () => { if (window.confirm("Diesen Termin in Pazulic ausblenden? In Google bleibt er.") && (await save({ hidden: true, title: ev.title }))) onClose(); }}>Nur diesen Tag</button>
+        <button className="btn danger" onClick={async () => { if (window.confirm("ALLE Termine mit diesem Namen/dieser Serie in Pazulic ausblenden? In Google bleiben sie.") && (await saveGoogleMark({ uid: ev.uid, date: HIDE_ALL, hidden: true, title: ev.title }))) onClose(); }}>Alle aus dieser Serie</button>
       </div>
-      <p className="muted small">Pazulic löscht nichts in deinem Google Kalender – der Termin wird nur in der App nicht mehr gezeigt.</p>
+      <p className="muted small">Pazulic löscht nichts in deinem Google Kalender – der Termin wird nur in der App nicht mehr gezeigt. Du kannst ihn im 🗑 Papierkorb (im Plan) wiederherstellen.</p>
     </div>
   );
 }

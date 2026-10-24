@@ -13,6 +13,7 @@ interface Store {
   ready: boolean;
   exams: Exam[];
   blocks: Block[];
+  trash: Block[];
   sessions: Session[];
   goals: Goal[];
   grades: Grade[];
@@ -31,6 +32,9 @@ interface Store {
   deleteGoal: (id: string) => Promise<boolean>;
   saveBlock: (b: Partial<Block> & Pick<Block, "date" | "start_time" | "end_time" | "kind">) => Promise<boolean>;
   deleteBlock: (id: string) => Promise<boolean>;
+  restoreBlock: (id: string) => Promise<boolean>;
+  purgeBlock: (id: string) => Promise<boolean>;
+  unskipOccurrence: (b: Block, date: string) => Promise<boolean>;
   addBlocks: (rows: (Partial<Block> & Pick<Block, "date" | "start_time" | "end_time" | "kind">)[]) => Promise<boolean>;
   skipOccurrence: (b: Block, date: string) => Promise<boolean>;
   saveCustomKind: (k: { id?: string; name: string; color: string; remind_minutes?: number | null }) => Promise<CustomKind | null>;
@@ -66,8 +70,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(false);
   const [ready, setReady] = useState(false);
   const [exams, setExams] = useState<Exam[]>([]);
-  const [blocks, setBlocks] = useState<Block[]>([]);
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [allBlocks, setBlocks] = useState<Block[]>([]);
+  const [allSessions, setSessions] = useState<Session[]>([]);
+  const blocks = useMemo(() => allBlocks.filter((b) => !b.deleted_at), [allBlocks]);
+  const trashIds = useMemo(() => new Set(allBlocks.filter((b) => b.deleted_at).map((b) => b.id)), [allBlocks]);
+  // Lernzeiten von gelöschten Einträgen zählen nicht mit
+  const sessions = useMemo(() => allSessions.filter((x) => !x.block_id || !trashIds.has(x.block_id)), [allSessions, trashIds]);
+  const trash = useMemo(() => allBlocks.filter((b) => b.deleted_at).sort((a, b) => (b.deleted_at ?? "").localeCompare(a.deleted_at ?? "")), [allBlocks]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [grades, setGrades] = useState<Grade[]>([]);
   const [reportGrades, setReportGrades] = useState<ReportGrade[]>([]);
@@ -106,7 +115,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     ]);
     loading.current = false;
     if (e.error || b.error || s.error || g.error || gr.error || rg.error || sj.error || ck.error || gm.error || grl.error) { setError("Daten konnten nicht geladen werden. Bitte später nochmal öffnen."); return; }
-    setExams(e.data as Exam[]); setBlocks(b.data as Block[]); setSessions(s.data as Session[]); setGoals(g.data as Goal[]);
+    const cutoff = new Date(Date.now() - 30 * 864e5).toISOString();
+    const old = (b.data as Block[]).filter((x) => x.deleted_at && x.deleted_at < cutoff).map((x) => x.id);
+    if (old.length) supabase.from("plan_blocks").delete().in("id", old).then(() => {});
+    setExams(e.data as Exam[]); setBlocks((b.data as Block[]).filter((x) => !old.includes(x.id))); setSessions(s.data as Session[]); setGoals(g.data as Goal[]);
     setGrades((gr.data as Grade[]).map((x) => ({ ...x, points: x.points == null ? null : Number(x.points), max_points: x.max_points == null ? null : Number(x.max_points) })));
     setReportGrades(rg.data as ReportGrade[]);
     setCustomKinds(ck.data as CustomKind[]); setGoogleMarks(gm.data as GoogleMark[]); setGoogleRules(grl.data as GoogleRule[]);
@@ -251,9 +263,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteBlock: Store["deleteBlock"] = async (id) => {
+    // In den Papierkorb (kann 30 Tage lang wiederhergestellt werden)
+    const deleted_at = new Date().toISOString();
+    const { error: err } = await supabase.from("plan_blocks").update({ deleted_at }).eq("id", id);
+    if (err) { setError("Löschen hat nicht geklappt."); return false; }
+    setBlocks((p) => p.map((b) => (b.id === id ? { ...b, deleted_at } : b)));
+    return true;
+  };
+
+  const restoreBlock: Store["restoreBlock"] = async (id) => {
+    const { error: err } = await supabase.from("plan_blocks").update({ deleted_at: null }).eq("id", id);
+    if (err) { setError(FAIL); return false; }
+    setBlocks((p) => p.map((b) => (b.id === id ? { ...b, deleted_at: null } : b)));
+    return true;
+  };
+
+  const purgeBlock: Store["purgeBlock"] = async (id) => {
     const { error: err } = await supabase.from("plan_blocks").delete().eq("id", id);
     if (err) { setError("Löschen hat nicht geklappt."); return false; }
     setBlocks((p) => p.filter((b) => b.id !== id));
+    setSessions((p) => p.filter((x) => x.block_id !== id));
+    return true;
+  };
+
+  const unskipOccurrence: Store["unskipOccurrence"] = async (b, date) => {
+    const skip_dates = (b.skip_dates ?? []).filter((d) => d !== date);
+    const { error: err } = await supabase.from("plan_blocks").update({ skip_dates }).eq("id", b.id);
+    if (err) { setError(FAIL); return false; }
+    setBlocks((p) => p.map((x) => (x.id === b.id ? { ...x, skip_dates } : x)));
     return true;
   };
 
@@ -341,10 +378,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const signOut = async () => { await supabase.auth.signOut(); };
 
   const value = useMemo<Store>(() => ({
-    auth, authReady, ready, exams, blocks, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, googleRules, settings, timer, error, clearError: () => setError(null),
-    saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, addBlocks, skipOccurrence, saveCustomKind, deleteCustomKind, saveGoogleMark, saveGoogleRule, deleteGoogleRule, toggleDone, addSession, deleteSession, setTimer, saveGrade, deleteGrade, saveReportGrade, saveSettings, saveSubjects, deleteSubject, reloadAll: loadAll, signOut,
+    auth, authReady, ready, exams, blocks, trash, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, googleRules, settings, timer, error, clearError: () => setError(null),
+    saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, restoreBlock, purgeBlock, unskipOccurrence, addBlocks, skipOccurrence, saveCustomKind, deleteCustomKind, saveGoogleMark, saveGoogleRule, deleteGoogleRule, toggleDone, addSession, deleteSession, setTimer, saveGrade, deleteGrade, saveReportGrade, saveSettings, saveSubjects, deleteSubject, reloadAll: loadAll, signOut,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [auth, authReady, ready, exams, blocks, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, googleRules, settings, timer, error]);
+  }), [auth, authReady, ready, exams, blocks, trash, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, googleRules, settings, timer, error]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

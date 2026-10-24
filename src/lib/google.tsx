@@ -10,8 +10,8 @@ export const HIDE_ALL = "2000-01-01";
 
 export interface GEvent { uid: string; date: string; start: string; end: string; allDay: boolean; title: string }
 
-interface G { byDate: Map<string, GEvent[]>; loading: boolean; error: string | null; lastLoad: Date | null; reload: () => void }
-const Ctx = createContext<G>({ byDate: new Map(), loading: false, error: null, lastLoad: null, reload: () => {} });
+interface G { byDate: Map<string, GEvent[]>; titles: Map<string, string>; loading: boolean; error: string | null; lastLoad: Date | null; reload: () => void }
+const Ctx = createContext<G>({ byDate: new Map(), titles: new Map(), loading: false, error: null, lastLoad: null, reload: () => {} });
 export const useGoogle = () => useContext(Ctx);
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -102,5 +102,6 @@ export function GoogleProvider({ children }: { children: ReactNode }) {
     return m;
   }, [events, googleMarks]);
 
-  return <Ctx.Provider value={{ byDate, loading, error, lastLoad, reload: load }}>{children}</Ctx.Provider>;
+  const titles = useMemo(() => new Map(events.map((e) => [e.uid, e.title])), [events]);
+  return <Ctx.Provider value={{ byDate, titles, loading, error, lastLoad, reload: load }}>{children}</Ctx.Provider>;
 }

@@ -9,6 +9,7 @@ import OccRow from "../components/OccRow";
 import GRow from "../components/GRow";
 import { useGoogle } from "../lib/google";
 import PlanSearch from "../components/PlanSearch";
+import TrashSheet from "../components/TrashSheet";
 import { googleKind } from "../lib/labels";
 import Sheet from "../components/Sheet";
 import BlockDetail from "../components/BlockDetail";
@@ -23,6 +24,7 @@ export default function Plan() {
   const [month, setMonth] = useState(() => today().slice(0, 7));
   const [open, setOpen] = useState<Occurrence | null>(null);
   const [add, setAdd] = useState(false);
+  const [trashOpen, setTrashOpen] = useState(false);
 
   const setV = (v: View) => { setView(v); try { localStorage.setItem("plan-view", v); } catch { /* egal */ } };
 
@@ -56,9 +58,12 @@ export default function Plan() {
     <div className="page">
       <header className="page-head row-between">
         <h1>Plan</h1>
+        <div className="head-actions">
+        <button className="icon-btn" onClick={() => setTrashOpen(true)} aria-label="Papierkorb" title="Papierkorb">🗑</button>
         <div className="seg">
           <button className={view === "liste" ? "on" : ""} onClick={() => setV("liste")}>Liste</button>
           <button className={view === "kalender" ? "on" : ""} onClick={() => setV("kalender")}>Kalender</button>
+        </div>
         </div>
       </header>
 
@@ -128,6 +133,7 @@ export default function Plan() {
       </section>
 
       {open && <Sheet title="Eintrag" onClose={() => setOpen(null)}><BlockDetail occ={occurrencesOn(blocks, open.date).find((o) => o.block.id === open.block.id) ?? open} onClose={() => setOpen(null)} /></Sheet>}
+      {trashOpen && <TrashSheet onClose={() => setTrashOpen(false)} />}
       {add && <Sheet title="Neuer Eintrag" onClose={() => setAdd(false)}><BlockForm date={day} onDone={() => setAdd(false)} /></Sheet>}
     </div>
   );

@@ -124,7 +124,7 @@ async function sendTo(admin: Any, subs: Any[], payload: Any) {
 async function processUser(admin: Any, userId: string, subs: Any[], now: Date) {
   const [{ data: st }, { data: blocks }, { data: kinds }, { data: rules }, { data: marks }, { data: exams }] = await Promise.all([
     admin.from("user_settings").select("*").eq("user_id", userId).maybeSingle(),
-    admin.from("plan_blocks").select("*").eq("user_id", userId),
+    admin.from("plan_blocks").select("*").eq("user_id", userId).is("deleted_at", null),
     admin.from("custom_kinds").select("*").eq("user_id", userId),
     admin.from("google_rules").select("*").eq("user_id", userId),
     admin.from("google_marks").select("*").eq("user_id", userId),

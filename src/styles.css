@@ -332,3 +332,8 @@ input.num { width: 64px; flex: none !important; text-align: center; }
 .rem-list { display: flex; flex-direction: column; gap: 4px; }
 .rem-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.06); }
 .rem-row select { width: 160px; padding: 7px 8px; font-size: .88rem; }
+.head-actions { display: flex; align-items: center; gap: 8px; }
+.trash { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.trash li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,.05); flex-wrap: wrap; }
+.trash li > span:first-child { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.trash-actions { display: flex; gap: 6px; }
