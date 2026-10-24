@@ -3,7 +3,9 @@ import { useStore } from "../lib/store";
 import { useGoogle } from "../lib/google";
 import Sheet from "./Sheet";
 
-const OK = /^https:\/\/calendar\.google\.com\/calendar\/ical\/\S+\.ics$/;
+const OK = /^https:\/\/calendar\.google\.com\/calendar\/ical\/[^\s]+\.ics(\?[^\s]*)?$/;
+/** Link säubern: Leerzeichen/Zeilenumbrüche weg, webcal:// → https:// */
+const clean = (u: string) => u.replace(/\s+/g, "").replace(/^webcals?:\/\//i, "https://").replace(/^http:\/\//i, "https://");
 
 export default function SettingsSheet({ onClose }: { onClose: () => void }) {
   const { settings, saveSettings, signOut, auth } = useStore();
@@ -14,10 +16,18 @@ export default function SettingsSheet({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
 
   async function connect() {
-    const u = url.trim();
-    if (!OK.test(u)) { setMsg({ ok: false, t: "Das ist kein gültiger Google-iCal-Link. Er beginnt mit https://calendar.google.com/calendar/ical/ und endet mit .ics" }); return; }
+    const u = clean(url);
+    if (!OK.test(u)) {
+      let why = "Er muss mit https://calendar.google.com/calendar/ical/ beginnen und mit .ics enden.";
+      if (u.includes("/embed")) why = "Das ist der Link zum Einbetten. Du brauchst die „Geheime Adresse im iCal-Format“.";
+      else if (u.includes("/public/")) why = "Das ist die öffentliche Adresse. Die funktioniert nur, wenn dein Kalender öffentlich ist. Nimm lieber die „Geheime Adresse im iCal-Format“.";
+      else if (!u.startsWith("https://calendar.google.com")) why = "Der Link kommt nicht von calendar.google.com.";
+      setMsg({ ok: false, t: "Dieser Link passt nicht. " + why + " Dein Link beginnt mit: " + u.slice(0, 45) + "…" });
+      return;
+    }
     setBusy(true);
     const ok = await saveSettings({ google_ical_url: u, google_enabled: true });
+    if (!ok) { setBusy(false); setMsg({ ok: false, t: "Speichern hat nicht geklappt. Bitte nochmal versuchen." }); return; }
     setBusy(false);
     if (ok) setMsg({ ok: true, t: "Verbunden! Deine Google-Termine erscheinen jetzt in Heute, Plan und Kalender." });
   }
@@ -48,14 +58,14 @@ export default function SettingsSheet({ onClose }: { onClose: () => void }) {
               <ol>
                 <li>Öffne <b>calendar.google.com</b> am Laptop.</li>
                 <li>Links bei „Meine Kalender“: auf die drei Punkte ⋮ neben deinem Kalender → <b>Einstellungen und Freigabe</b>.</li>
-                <li>Ganz nach unten scrollen zu <b>„Privatadresse im iCal-Format“</b> → kopieren.</li>
+                <li>Ganz nach unten scrollen zu <b>„Geheime Adresse im iCal-Format“</b> (englisch: „Secret address in iCal format“) → auf das Kopier-Symbol klicken.</li>
                 <li>Hier einfügen und auf „Verbinden“ tippen.</li>
               </ol>
               <p className="muted small">Wichtig: Diesen Link niemandem zeigen – wer ihn hat, kann deine Termine sehen.</p>
             </details>
-            <label className="lbl" htmlFor="g-url">Privatadresse im iCal-Format</label>
+            <label className="lbl" htmlFor="g-url">Geheime Adresse im iCal-Format</label>
             <div className="pw">
-              <input id="g-url" type={show ? "text" : "password"} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" autoComplete="off" />
+              <input id="g-url" type={show ? "text" : "password"} inputMode="url" spellCheck={false} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" autoComplete="off" />
               <button type="button" className="eye" onClick={() => setShow((s) => !s)} aria-label={show ? "Link verstecken" : "Link zeigen"}>{show ? "🙈" : "👁"}</button>
             </div>
             <div className="form-actions"><button className="btn primary" onClick={connect} disabled={busy || !url}>{busy ? "Speichert …" : "Verbinden"}</button></div>
