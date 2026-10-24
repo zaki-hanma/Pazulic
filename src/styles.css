@@ -37,7 +37,7 @@ button { cursor: pointer; }
 .splash { min-height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 12px; }
 
 /* Layout */
-.main { position: relative; z-index: 2; padding: 16px 16px calc(96px + env(safe-area-inset-bottom)); max-width: 980px; margin: 0 auto; }
+.main { position: relative; z-index: 2; padding: 16px 16px calc(96px + env(safe-area-inset-bottom)); max-width: 1220px; margin: 0 auto; }
 .page { display: flex; flex-direction: column; gap: 14px; }
 .page-head { display: flex; align-items: center; gap: 12px; padding: 4px 2px; }
 .sidebar { display: none; }
@@ -55,7 +55,7 @@ button { cursor: pointer; }
   .side-link:hover { background: rgba(255,255,255,.06); }
   .side-link.active { background: var(--yellow); color: var(--on-yellow); font-weight: 700; }
   .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; word-break: break-all; }
-  .main { margin-left: 230px; max-width: none; padding: 28px max(32px, calc((100vw - 230px - 980px) / 2)) 40px; }
+  .main { margin-left: 230px; max-width: none; padding: 28px max(32px, calc((100vw - 230px - 1180px) / 2)) 40px; }
   .grid2 { grid-template-columns: 1fr 1fr !important; }
 }
 
