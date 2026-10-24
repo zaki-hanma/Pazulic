@@ -27,6 +27,14 @@ export interface TimerState {
   started_at: string | null; acc_ms: number; meta: Record<string, unknown>;
 }
 
+export type GradeKind = "klausur" | "projekt" | "sonstige" | "muendlich";
+export interface Grade {
+  id: string; user_id?: string; school_year: string; subject: string; title: string; kind: GradeKind;
+  date: string | null; points: number | null; max_points: number | null; grade_text: string | null; created_at?: string;
+}
+export interface ReportGrade { id: string; school_year: string; subject: string; grade: number | null; note: string | null }
+export interface Settings { google_ical_url: string | null; google_enabled: boolean }
+
 export interface Goal { id: string; user_id?: string; title: string; date: string | null; created_at?: string }
 
 /** Ein Plan-Eintrag an einem bestimmten Tag (auch wiederholte Einträge). */

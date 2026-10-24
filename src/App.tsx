@@ -9,6 +9,7 @@ import Analyse from "./pages/Analyse";
 import Noten from "./pages/Noten";
 import Langfristig from "./pages/Langfristig";
 import Logo from "./components/Logo";
+import { GoogleProvider } from "./lib/google";
 
 export default function App() {
   const { auth, authReady, ready } = useStore();
@@ -16,6 +17,7 @@ export default function App() {
   if (!auth) return <Auth />;
   if (!ready) return <Splash />;
   return (
+    <GoogleProvider>
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Heute />} />
@@ -27,6 +29,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
+    </GoogleProvider>
   );
 }
 

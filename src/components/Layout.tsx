@@ -1,7 +1,9 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import Petals from "./Petals";
 import Logo from "./Logo";
+import { useState } from "react";
 import { useStore } from "../lib/store";
+import SettingsSheet from "./SettingsSheet";
 
 const NAV = [
   { to: "/", label: "Heute", icon: "☀" },
@@ -15,7 +17,8 @@ const BG: Record<string, string> = { "/noten": "tafel", "/langfristig": "reise" 
 
 export default function Layout() {
   const { pathname } = useLocation();
-  const { error, clearError, signOut, auth } = useStore();
+  const { error, clearError, auth } = useStore();
+  const [settings, setSettings] = useState(false);
   const bg = BG[pathname] ?? "bibliothek";
   return (
     <div className="app">
@@ -33,9 +36,11 @@ export default function Layout() {
         </nav>
         <div className="side-foot">
           <span className="muted small">{auth?.user.email}</span>
-          <button className="btn ghost small" onClick={signOut}>Abmelden</button>
+          <button className="btn ghost small" onClick={() => setSettings(true)}>⚙ Einstellungen</button>
         </div>
       </aside>
+      <button className="gear" onClick={() => setSettings(true)} aria-label="Einstellungen">⚙</button>
+      {settings && <SettingsSheet onClose={() => setSettings(false)} />}
       <main className="main">
         {error && (
           <div className="toast" role="alert" onClick={clearError}>

@@ -7,6 +7,8 @@ import { examName, topicNames } from "../lib/labels";
 import type { Occurrence } from "../lib/types";
 import TimerCard from "../components/TimerCard";
 import OccRow from "../components/OccRow";
+import GRow from "../components/GRow";
+import { useGoogle } from "../lib/google";
 import Sheet from "../components/Sheet";
 import BlockDetail from "../components/BlockDetail";
 import BlockForm from "../components/BlockForm";
@@ -20,6 +22,7 @@ export default function Heute() {
   const [add, setAdd] = useState(false);
 
   const occs = useMemo(() => occurrencesOn(blocks, d), [blocks, d]);
+  const gev = useGoogle().byDate.get(d) ?? [];
   const current = occs.find((o) => isNow(o, now));
   const next = occs.find((o) => !isPast(o, now) && o !== current && at(o.date, o.block.start_time) > now);
   const upcoming = exams.filter((e) => at(e.date, e.time) > now);
@@ -82,11 +85,13 @@ export default function Heute() {
           <h2>Heute</h2>
           <button className="btn primary small" onClick={() => setAdd(true)}>+ Eintrag</button>
         </div>
-        {occs.length === 0 ? <p className="muted">Für heute ist nichts geplant.</p> : (
+        {occs.length + gev.length === 0 ? <p className="muted">Für heute ist nichts geplant.</p> : (
           <ul className="occ-list">
-            {occs.map((o) => (
-              <OccRow key={o.block.id} occ={o} now={o === current} sub={topicNames(o.block, exams)} onOpen={() => setOpen(o)} onToggle={() => toggleDone(o.block, o.date)} />
-            ))}
+            {[...occs.map((o) => ({ t: o.block.start_time.slice(0, 5), o })), ...gev.map((g) => ({ t: g.allDay ? "00:00" : g.start, g }))]
+              .sort((a, b) => a.t.localeCompare(b.t))
+              .map((x) => "g" in x ? <GRow key={"g" + x.g.uid + x.g.start} ev={x.g} /> : (
+                <OccRow key={x.o.block.id} occ={x.o} now={x.o === current} sub={topicNames(x.o.block, exams)} onOpen={() => setOpen(x.o)} onToggle={() => toggleDone(x.o.block, x.o.date)} />
+              ))}
           </ul>
         )}
       </section>

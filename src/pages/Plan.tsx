@@ -6,6 +6,8 @@ import { topicNames } from "../lib/labels";
 import { KIND_COLOR } from "../lib/types";
 import type { Occurrence } from "../lib/types";
 import OccRow from "../components/OccRow";
+import GRow from "../components/GRow";
+import { useGoogle } from "../lib/google";
 import Sheet from "../components/Sheet";
 import BlockDetail from "../components/BlockDetail";
 import BlockForm from "../components/BlockForm";
@@ -25,6 +27,8 @@ export default function Plan() {
   const weekStart = addDays(day, 1 - isoWeekday(day));
   const week = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
   const occs = useMemo(() => occurrencesOn(blocks, day), [blocks, day]);
+  const google = useGoogle().byDate;
+  const gev = google.get(day) ?? [];
   const examDates = useMemo(() => new Map(exams.map((e) => [e.date, e.short_name || e.subject])), [exams]);
   const t = today();
   const nowD = new Date();
@@ -85,12 +89,12 @@ export default function Plan() {
                   <span className="cal-n">{parseYmd(c.d).getDate()}</span>
                   {ex && <span className="cal-exam">{ex}</span>}
                   {hol && <span className="cal-hol">{hol}</span>}
-                  <span className="cal-dots">{c.occ.slice(0, 6).map((o) => <i key={o.block.id} style={{ background: KIND_COLOR[o.block.kind] }} />)}</span>
+                  <span className="cal-dots">{c.occ.slice(0, 6).map((o) => <i key={o.block.id} style={{ background: KIND_COLOR[o.block.kind] }} />)}{(google.get(c.d) ?? []).slice(0, 3).map((_, i) => <i key={"g" + i} className="g" />)}</span>
                 </button>
               );
             })}
           </div>
-          <p className="muted small legend"><i className="lg fer" /> Schulferien Niedersachsen <i className="lg hol" /> Feiertag <i className="lg ex" /> Klausur</p>
+          <p className="muted small legend"><i className="lg fer" /> Schulferien Niedersachsen <i className="lg hol" /> Feiertag <i className="lg ex" /> Klausur <i className="lg" style={{ background: "#E8ECF3", borderRadius: "50%" }} /> Google</p>
         </section>
       )}
 
@@ -104,9 +108,13 @@ export default function Plan() {
           <button className="btn primary small" onClick={() => setAdd(true)}>+ Eintrag</button>
         </div>
         {day < t && <p className="muted small">Vergangener Tag – du kannst Einträge nachtragen oder ändern.</p>}
-        {occs.length === 0 ? <p className="muted">Nichts geplant.</p> : (
+        {occs.length + gev.length === 0 ? <p className="muted">Nichts geplant.</p> : (
           <ul className="occ-list">
-            {occs.map((o) => <OccRow key={o.block.id} occ={o} now={day === t && isNow(o, nowD)} sub={topicNames(o.block, exams)} onOpen={() => setOpen(o)} onToggle={() => toggleDone(o.block, o.date)} />)}
+            {[...occs.map((o) => ({ t: o.block.start_time.slice(0, 5), o })), ...gev.map((g) => ({ t: g.allDay ? "00:00" : g.start, g }))]
+              .sort((a, b) => a.t.localeCompare(b.t))
+              .map((x) => "g" in x ? <GRow key={"g" + x.g.uid + x.g.start} ev={x.g} /> : (
+                <OccRow key={x.o.block.id} occ={x.o} now={day === t && isNow(x.o, nowD)} sub={topicNames(x.o.block, exams)} onOpen={() => setOpen(x.o)} onToggle={() => toggleDone(x.o.block, x.o.date)} />
+              ))}
           </ul>
         )}
       </section>

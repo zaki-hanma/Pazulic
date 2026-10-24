@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from "react";
 import type { Session as AuthSession } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
-import type { Block, Exam, Goal, Session, TimerState } from "./types";
+import type { Block, Exam, Goal, Grade, ReportGrade, Session, Settings, TimerState } from "./types";
 
 interface Store {
   auth: AuthSession | null;
@@ -14,6 +14,9 @@ interface Store {
   blocks: Block[];
   sessions: Session[];
   goals: Goal[];
+  grades: Grade[];
+  reportGrades: ReportGrade[];
+  settings: Settings;
   timer: TimerState | null;
   error: string | null;
   clearError: () => void;
@@ -27,6 +30,10 @@ interface Store {
   addSession: (s: Omit<Session, "id" | "user_id" | "created_at">) => Promise<boolean>;
   deleteSession: (id: string) => Promise<boolean>;
   setTimer: (t: TimerState | null) => Promise<void>;
+  saveGrade: (g: Omit<Grade, "id" | "user_id" | "created_at"> & { id?: string }) => Promise<boolean>;
+  deleteGrade: (id: string) => Promise<boolean>;
+  saveReportGrade: (r: { school_year: string; subject: string; grade: number | null }) => Promise<boolean>;
+  saveSettings: (s: Settings) => Promise<boolean>;
   signOut: () => Promise<void>;
 }
 
@@ -47,6 +54,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [grades, setGrades] = useState<Grade[]>([]);
+  const [reportGrades, setReportGrades] = useState<ReportGrade[]>([]);
+  const [settings, setSettingsState] = useState<Settings>({ google_ical_url: null, google_enabled: false });
   const [timer, setTimerState] = useState<TimerState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const uid = auth?.user.id;
@@ -61,23 +71,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadAll = useCallback(async () => {
     if (!uid || loading.current) return;
     loading.current = true;
-    const [e, b, s, t, g] = await Promise.all([
+    const [e, b, s, t, g, gr, rg, st] = await Promise.all([
       supabase.from("exams").select("*").order("date"),
       supabase.from("plan_blocks").select("*"),
       supabase.from("study_sessions").select("*"),
       supabase.from("timer_state").select("*").maybeSingle(),
       supabase.from("long_goals").select("*").order("date"),
+      supabase.from("grades").select("*"),
+      supabase.from("report_grades").select("*"),
+      supabase.from("user_settings").select("google_ical_url, google_enabled").maybeSingle(),
     ]);
     loading.current = false;
-    if (e.error || b.error || s.error || g.error) { setError("Daten konnten nicht geladen werden. Bitte später nochmal öffnen."); return; }
+    if (e.error || b.error || s.error || g.error || gr.error || rg.error) { setError("Daten konnten nicht geladen werden. Bitte später nochmal öffnen."); return; }
     setExams(e.data as Exam[]); setBlocks(b.data as Block[]); setSessions(s.data as Session[]); setGoals(g.data as Goal[]);
+    setGrades((gr.data as Grade[]).map((x) => ({ ...x, points: x.points == null ? null : Number(x.points), max_points: x.max_points == null ? null : Number(x.max_points) })));
+    setReportGrades(rg.data as ReportGrade[]);
+    if (st.data) setSettingsState(st.data as Settings);
     setTimerState((t.data as TimerState) ?? null);
     setReady(true);
   }, [uid]);
 
   // Einmal laden, danach live über Realtime (Handy und Laptop bleiben synchron).
   useEffect(() => {
-    if (!uid) { setReady(false); setExams([]); setBlocks([]); setSessions([]); setGoals([]); setTimerState(null); return; }
+    if (!uid) { setReady(false); setExams([]); setBlocks([]); setSessions([]); setGoals([]); setGrades([]); setReportGrades([]); setTimerState(null); return; }
     loadAll();
     let t: number | undefined;
     const reload = () => { window.clearTimeout(t); t = window.setTimeout(loadAll, 300); };
@@ -86,6 +102,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "plan_blocks", filter: `user_id=eq.${uid}` }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "study_sessions", filter: `user_id=eq.${uid}` }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "long_goals", filter: `user_id=eq.${uid}` }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "grades", filter: `user_id=eq.${uid}` }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "report_grades", filter: `user_id=eq.${uid}` }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_settings", filter: `user_id=eq.${uid}` }, reload)
       .on("postgres_changes", { event: "*", schema: "public", table: "timer_state", filter: `user_id=eq.${uid}` }, reload)
       .subscribe();
     const onVis = () => { if (document.visibilityState === "visible") loadAll(); };
@@ -180,13 +199,46 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (err) setError(FAIL);
   };
 
+  const saveGrade: Store["saveGrade"] = async (x) => {
+    const { id, ...row } = x;
+    const res = id ? await supabase.from("grades").update(row).eq("id", id).select().single()
+      : await supabase.from("grades").insert(row).select().single();
+    if (res.error) { setError(FAIL); return false; }
+    const g = res.data as Grade;
+    const saved = { ...g, points: g.points == null ? null : Number(g.points), max_points: g.max_points == null ? null : Number(g.max_points) };
+    setGrades((p) => [...p.filter((y) => y.id !== saved.id), saved]);
+    return true;
+  };
+
+  const deleteGrade: Store["deleteGrade"] = async (id) => {
+    const { error: err } = await supabase.from("grades").delete().eq("id", id);
+    if (err) { setError("Löschen hat nicht geklappt."); return false; }
+    setGrades((p) => p.filter((g) => g.id !== id));
+    return true;
+  };
+
+  const saveReportGrade: Store["saveReportGrade"] = async (r) => {
+    const res = await supabase.from("report_grades").upsert({ ...r, user_id: uid }, { onConflict: "user_id,school_year,subject" }).select().single();
+    if (res.error) { setError(FAIL); return false; }
+    const saved = res.data as ReportGrade;
+    setReportGrades((p) => [...p.filter((y) => !(y.school_year === saved.school_year && y.subject === saved.subject)), saved]);
+    return true;
+  };
+
+  const saveSettings: Store["saveSettings"] = async (x) => {
+    const { error: err } = await supabase.from("user_settings").upsert({ ...x, user_id: uid, updated_at: new Date().toISOString() });
+    if (err) { setError(FAIL); return false; }
+    setSettingsState(x);
+    return true;
+  };
+
   const signOut = async () => { await supabase.auth.signOut(); };
 
   const value = useMemo<Store>(() => ({
-    auth, authReady, ready, exams, blocks, sessions, goals, timer, error, clearError: () => setError(null),
-    saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, toggleDone, addSession, deleteSession, setTimer, signOut,
+    auth, authReady, ready, exams, blocks, sessions, goals, grades, reportGrades, settings, timer, error, clearError: () => setError(null),
+    saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, toggleDone, addSession, deleteSession, setTimer, saveGrade, deleteGrade, saveReportGrade, saveSettings, signOut,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [auth, authReady, ready, exams, blocks, sessions, goals, timer, error]);
+  }), [auth, authReady, ready, exams, blocks, sessions, goals, grades, reportGrades, settings, timer, error]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
