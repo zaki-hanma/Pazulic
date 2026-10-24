@@ -271,7 +271,7 @@ input[type="date"], input[type="time"] { color-scheme: dark; }
 .scale b { font-size: 1.2rem; color: var(--c); } .scale small { font-size: 0.68rem; color: var(--muted); text-align: center; }
 
 /* Google + Einstellungen */
-.occ.google { border-left-color: #E8ECF3; background: rgba(255,255,255,.035); }
+.occ.google { border-left-color: var(--c); background: rgba(255,255,255,.035); }
 .gbadge { width: 28px; height: 28px; flex: none; border-radius: 9px; display: grid; place-items: center; font-weight: 800; font-size: .8rem; background: #E8ECF3; color: #1a2130; }
 .occ-main.static { cursor: default; }
 .gear { position: fixed; z-index: 6; top: calc(12px + env(safe-area-inset-top)); right: 12px; width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--nav); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); font-size: 1.15rem; }
@@ -314,3 +314,18 @@ input:disabled { opacity: .7; }
 input.num { width: 64px; flex: none !important; text-align: center; }
 .form-actions { flex-wrap: wrap; }
 .gtag { display: inline-grid; place-items: center; width: 15px; height: 15px; border-radius: 4px; background: #E8ECF3; color: #1a2130; font-size: .62rem; font-weight: 800; margin-right: 2px; vertical-align: 1px; }
+.color.pick { display: grid; place-items: center; font-size: .8rem; position: relative; overflow: hidden; background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); cursor: pointer; }
+.color.pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+/* Suche */
+.search-card { padding: 10px 12px; }
+.search { display: flex; align-items: center; gap: 8px; }
+.search input { flex: 1; border: 0; background: transparent; padding: 6px 2px; }
+.search input:focus { outline: none; }
+.search-card:focus-within { border-color: rgba(242,207,69,.55); }
+.hits { margin-top: 6px; max-height: 50vh; overflow-y: auto; }
+.hit { width: 100%; display: flex; gap: 12px; align-items: center; padding: 8px 10px; border-radius: 12px; border: 0; border-left: 4px solid var(--c); background: rgba(255,255,255,.05); text-align: left; }
+.hit-date { display: flex; flex-direction: column; min-width: 78px; }
+.hit-date small { color: var(--muted); }
+.hits-sep { margin: 6px 0 2px; }
+#day-list { scroll-margin-top: 12px; }

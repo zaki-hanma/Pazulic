@@ -8,6 +8,8 @@ import type { Occurrence } from "../lib/types";
 import OccRow from "../components/OccRow";
 import GRow from "../components/GRow";
 import { useGoogle } from "../lib/google";
+import PlanSearch from "../components/PlanSearch";
+import { googleKind } from "../lib/labels";
 import Sheet from "../components/Sheet";
 import BlockDetail from "../components/BlockDetail";
 import BlockForm from "../components/BlockForm";
@@ -15,7 +17,7 @@ import BlockForm from "../components/BlockForm";
 type View = "liste" | "kalender";
 
 export default function Plan() {
-  const { blocks, exams, toggleDone, customKinds } = useStore();
+  const { blocks, exams, toggleDone, customKinds, googleMarks, googleRules } = useStore();
   const [view, setView] = useState<View>(() => { try { return (localStorage.getItem("plan-view") as View) || "liste"; } catch { return "liste"; } });
   const [day, setDay] = useState(today());
   const [month, setMonth] = useState(() => today().slice(0, 7));
@@ -60,6 +62,8 @@ export default function Plan() {
         </div>
       </header>
 
+      <PlanSearch onPick={(d) => { pick(d); setTimeout(() => document.getElementById("day-list")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); }} />
+
       {view === "liste" ? (
         <section className="card week">
           <button className="icon-btn" onClick={() => setDay(addDays(day, -7))} aria-label="Woche zurück">‹</button>
@@ -92,7 +96,7 @@ export default function Plan() {
                   <span className="cal-n">{parseYmd(c.d).getDate()}</span>
                   {ex && <span className="cal-exam">{ex}</span>}
                   {hol && <span className="cal-hol">{hol}</span>}
-                  <span className="cal-dots">{c.occ.slice(0, 6).map((o) => <i key={o.block.id} style={{ background: kindInfo(o.block.kind, o.block.custom_kind_id, customKinds).color }} />)}{(google.get(c.d) ?? []).slice(0, 3).map((_, i) => <i key={"g" + i} className="g" />)}</span>
+                  <span className="cal-dots">{c.occ.slice(0, 6).map((o) => <i key={o.block.id} style={{ background: kindInfo(o.block.kind, o.block.custom_kind_id, customKinds).color }} />)}{(google.get(c.d) ?? []).slice(0, 3).map((ev, i) => { const gk = googleKind(ev.title, googleMarks.find((x) => x.uid === ev.uid && x.date === c.d), googleRules); return <i key={"g" + i} className="g" style={{ background: kindInfo(gk.kind, gk.custom, customKinds).color }} />; })}</span>
                 </button>
               );
             })}
@@ -101,7 +105,7 @@ export default function Plan() {
         </section>
       )}
 
-      <section className="card">
+      <section className="card" id="day-list">
         <div className="card-head">
           <div>
             <h2>{longDate(day)}</h2>

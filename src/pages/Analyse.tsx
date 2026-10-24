@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { MONTHS, minutesBetween, parseYmd, ymd } from "../lib/dates";
 import { occurrencesOn } from "../lib/plan";
 import { isStudy } from "../lib/types";
-import { kindInfo } from "../lib/labels";
+import { googleKind, kindInfo } from "../lib/labels";
 import { useGoogle } from "../lib/google";
 import { gDuration } from "../components/GRow";
 import type { Block, Kind } from "../lib/types";
@@ -22,7 +22,7 @@ function Alltag({ blocks }: { blocks: Block[] }) {
   const t = today();
   const [month, setMonth] = useState(t.slice(0, 7));
   const shift = (n: number) => { const d = parseYmd(month + "-01"); d.setMonth(d.getMonth() + n); setMonth(ymd(d).slice(0, 7)); };
-  const { customKinds, googleMarks } = useStore();
+  const { customKinds, googleMarks, googleRules } = useStore();
   const google = useGoogle().byDate;
   const data = useMemo(() => {
     const per = new Map<string, { label: string; color: string; m: number; n: number }>();
@@ -45,10 +45,11 @@ function Alltag({ blocks }: { blocks: Block[] }) {
       if (!mk.done || mk.hidden || !mk.date.startsWith(month) || mk.date > t) continue;
       const ev = (google.get(mk.date) ?? []).find((x) => x.uid === mk.uid);
       const min = mk.minutes ?? (ev ? gDuration(ev) : 0);
-      add(mk.kind ?? "termin", mk.custom_kind_id, min);
+      const gk = googleKind(ev?.title ?? "", mk, googleRules);
+      add(gk.kind, gk.custom, min);
     }
     return { rows: [...per.entries()].map(([k, v]) => ({ k, ...v })).sort((a, b) => b.m - a.m), days };
-  }, [blocks, month, t, customKinds, googleMarks, google]);
+  }, [blocks, month, t, customKinds, googleMarks, googleRules, google]);
   const max = Math.max(1, ...data.rows.map((r) => r.m));
   const total = data.rows.reduce((a, r) => a + r.m, 0);
   const [y, m] = month.split("-").map(Number);

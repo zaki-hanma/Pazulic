@@ -11,6 +11,7 @@ const TABLES: { name: string; conflict: string }[] = [
   { name: "grades", conflict: "id" },
   { name: "report_grades", conflict: "user_id,school_year,subject" },
   { name: "google_marks", conflict: "user_id,uid,date" },
+  { name: "google_rules", conflict: "user_id,match" },
 ];
 
 export async function downloadBackup(): Promise<{ ok: boolean; count: number }> {

@@ -4,18 +4,18 @@ import type { Block, Kind, RepeatRule } from "../lib/types";
 import { KINDS, KIND_COLOR, KIND_LABEL, isStudy } from "../lib/types";
 import { hhmm, minutesBetween, fmtMin, isoWeekday, parseYmd } from "../lib/dates";
 import { isRepeating, learnMinutes, ruleText } from "../lib/plan";
+import NewKind from "./NewKind";
 
 const WD = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-const COLORS = ["#FF9ECF", "#8AA6FF", "#5FD394", "#FFB067", "#F2CF45", "#B69CFF", "#5CC8C8", "#FF8A8A", "#E8ECF3", "#C3A27A"];
 type Freq = "none" | RepeatRule["freq"];
 
 interface Props { block?: Block; date: string; onDone: () => void }
 
 export default function BlockForm({ block, date, onDone }: Props) {
-  const { exams, saveBlock, deleteBlock, customKinds, saveCustomKind, skipOccurrence } = useStore();
+  const { exams, saveBlock, deleteBlock, customKinds, skipOccurrence } = useStore();
   const [kind, setKind] = useState<Kind>(block?.kind ?? "lernen");
   const [customId, setCustomId] = useState<string | null>(block?.custom_kind_id ?? null);
-  const [newKind, setNewKind] = useState<{ name: string; color: string } | null>(null);
+  const [newKind, setNewKind] = useState(false);
   const [title, setTitle] = useState(block?.title ?? "");
   const [examId, setExamId] = useState<string>(block?.exam_id ?? exams.find((e) => e.date >= date)?.id ?? "");
   const [topics, setTopics] = useState<string[]>(block?.topic_ids ?? []);
@@ -48,11 +48,7 @@ export default function BlockForm({ block, date, onDone }: Props) {
   };
   const preview = rule ? ruleText({ ...(block ?? {}), date: d, repeat_rule: rule } as Block) : "";
   const pickKind = (k: Kind, c: string | null) => { setKind(k); setCustomId(c); };
-  async function addKind() {
-    if (!newKind?.name.trim()) return;
-    const k = await saveCustomKind(newKind);
-    if (k) { pickKind("sonstiges", k.id); setNewKind(null); }
-  }
+
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -90,17 +86,9 @@ export default function BlockForm({ block, date, onDone }: Props) {
             <i className="dot" />{c.name}
           </button>
         ))}
-        <button type="button" className="chip" style={{ ["--c" as string]: "var(--yellow)" }} onClick={() => setNewKind({ name: "", color: COLORS[customKinds.length % COLORS.length] })}>+ Eigene Art</button>
+        <button type="button" className="chip" style={{ ["--c" as string]: "var(--yellow)" }} onClick={() => setNewKind(true)}>+ Eigene Art</button>
       </div>
-      {newKind && (
-        <div className="newkind">
-          <input autoFocus value={newKind.name} onChange={(e) => setNewKind({ ...newKind, name: e.target.value })} placeholder="z. B. Einkaufen, Sport, Putzen, Moschee …" maxLength={40} />
-          <div className="colors">
-            {COLORS.map((c) => <button type="button" key={c} aria-label={"Farbe " + c} className={"color" + (newKind.color === c ? " on" : "")} style={{ background: c }} onClick={() => setNewKind({ ...newKind, color: c })} />)}
-          </div>
-          <div className="inline"><button type="button" className="btn ghost small" onClick={() => setNewKind(null)}>Abbrechen</button><button type="button" className="btn primary small" onClick={addKind} disabled={!newKind.name.trim()}>Art speichern</button></div>
-        </div>
-      )}
+      {newKind && <NewKind onSaved={(k) => { pickKind("sonstiges", k.id); setNewKind(false); }} onCancel={() => setNewKind(false)} />}
 
       {study && (
         <>
@@ -125,7 +113,7 @@ export default function BlockForm({ block, date, onDone }: Props) {
       )}
 
       <label className="lbl" htmlFor="f-title">Titel {study ? "(leer = Themen-Namen)" : "(optional)"}</label>
-      <input id="f-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={study ? "z. B. Karteikarten" : KIND_LABEL[kind]} maxLength={80} />
+      <input id="f-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={study ? "z. B. Karteikarten" : customKinds.find((x) => x.id === customId)?.name ?? KIND_LABEL[kind]} maxLength={80} />
 
       <div className="row3">
         <div><label className="lbl" htmlFor="f-date">{freq !== "none" ? "Ab Datum" : "Datum"}</label><input id="f-date" type="date" value={d} onChange={(e) => setD(e.target.value)} required /></div>

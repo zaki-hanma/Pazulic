@@ -29,6 +29,7 @@ export interface RepeatRule {
   until?: string | null;
 }
 
+export interface GoogleRule { id: string; match: string; kind: Kind | null; custom_kind_id: string | null }
 export interface CustomKind { id: string; user_id?: string; name: string; color: string }
 export interface GoogleMark {
   id: string; user_id?: string; uid: string; date: string; done: boolean; hidden: boolean;
