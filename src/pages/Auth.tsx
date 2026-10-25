@@ -4,6 +4,7 @@ import Logo from "../components/Logo";
 import Petals from "../components/Petals";
 import { Link } from "react-router-dom";
 
+const SEND_ERR = "Die E-Mail konnte gerade nicht verschickt werden (Problem beim E-Mail-Dienst). Bitte später nochmal versuchen.";
 const RATE = "Es wurden gerade zu viele E-Mails verschickt. Bitte warte etwa eine Stunde und versuche es dann nochmal.";
 
 export default function Auth() {
@@ -33,7 +34,7 @@ export default function Auth() {
     } else {
       if (pw.length < 8) { setMsg({ ok: false, text: "Das Passwort braucht mindestens 8 Zeichen." }); setBusy(false); return; }
       const { data, error } = await supabase.auth.signUp({ email, password: pw, options: { emailRedirectTo: location.origin + location.pathname, data: { name: name.trim() } } });
-      if (error) setMsg({ ok: false, text: error.message.includes("rate") ? RATE : "Registrieren hat nicht geklappt: " + error.message });
+      if (error) setMsg({ ok: false, text: error.message.includes("rate") ? RATE : error.message.toLowerCase().includes("sending") ? SEND_ERR : "Registrieren hat nicht geklappt: " + error.message });
       else if (!data.session) { setMode("check"); startCool(); setMsg({ ok: true, text: "Fast fertig! Wir haben dir eine E-Mail geschickt. Klicke auf den Link darin – oder gib den Code aus der E-Mail hier ein." }); }
     }
     setBusy(false);
@@ -56,7 +57,7 @@ export default function Auth() {
   async function resend() {
     if (!email) { setMode("login"); setMsg({ ok: false, text: "Schreib zuerst deine E-Mail-Adresse hinein." }); return; }
     const { error } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: location.origin + location.pathname } });
-    if (error) setMsg({ ok: false, text: error.message.includes("rate") || error.message.includes("seconds") ? RATE : error.message });
+    if (error) setMsg({ ok: false, text: error.message.includes("rate") || error.message.includes("seconds") ? RATE : error.message.toLowerCase().includes("sending") ? SEND_ERR : error.message });
     else { startCool(); setMsg({ ok: true, text: "Neue E-Mail ist unterwegs. Wichtig: Nur die NEUESTE E-Mail funktioniert – ältere Links sind dann ungültig." }); }
   }
 
@@ -89,7 +90,7 @@ export default function Auth() {
   async function reset() {
     if (!email) { setMsg({ ok: false, text: "Schreib zuerst deine E-Mail oben hinein, dann tippe nochmal auf „Passwort vergessen?“." }); return; }
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
-    setMsg(error ? { ok: false, text: error.message.includes("rate") || error.message.includes("seconds") ? RATE : error.message } : { ok: true, text: "Wenn es ein Konto mit dieser E-Mail gibt, kommt gleich eine E-Mail. Öffne den Link darin (auch im Spam-Ordner schauen) und wähle ein neues Passwort." });
+    setMsg(error ? { ok: false, text: error.message.includes("rate") || error.message.includes("seconds") ? RATE : error.message.toLowerCase().includes("sending") ? SEND_ERR : error.message } : { ok: true, text: "Wenn es ein Konto mit dieser E-Mail gibt, kommt gleich eine E-Mail. Öffne den Link darin (auch im Spam-Ordner schauen) und wähle ein neues Passwort." });
   }
 
   return (
