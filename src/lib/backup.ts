@@ -6,6 +6,7 @@ const TABLES: { name: string; conflict: string }[] = [
   { name: "exams", conflict: "id" },
   { name: "plan_blocks", conflict: "id" },
   { name: "study_sessions", conflict: "id" },
+  { name: "activity_logs", conflict: "id" },
   { name: "long_goals", conflict: "id" },
   { name: "subjects", conflict: "user_id,school_year,key" },
   { name: "grades", conflict: "id" },

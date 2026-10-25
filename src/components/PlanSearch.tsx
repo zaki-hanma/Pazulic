@@ -18,12 +18,15 @@ export default function PlanSearch({ onPick }: { onPick: (date: string) => void 
     if (query.length < 2) return [];
     const out: Hit[] = [];
     const from = addDays(today(), -90), to = addDays(today(), 365);
-    const match = blocks.filter((b) => (b.title + " " + kindInfo(b.kind, b.custom_kind_id, customKinds).label).toLowerCase().includes(query));
-    if (match.length) {
+    const base = (b: typeof blocks[number]) => (b.title + " " + kindInfo(b.kind, b.custom_kind_id, customKinds).label).toLowerCase();
+    const cand = blocks.filter((b) => base(b).includes(query) || Object.values(b.day_notes ?? {}).some((n) => n.toLowerCase().includes(query)));
+    if (cand.length) {
       for (let d = from; d <= to; d = addDays(d, 1)) {
-        for (const o of occurrencesOn(match, d)) {
+        for (const o of occurrencesOn(cand, d)) {
+          const note = o.block.day_notes?.[d] ?? "";
+          if (!base(o.block).includes(query) && !note.toLowerCase().includes(query)) continue;
           const k = kindInfo(o.block.kind, o.block.custom_kind_id, customKinds);
-          out.push({ date: d, time: hhmm(o.block.start_time), title: o.block.title, sub: k.label, color: k.color });
+          out.push({ date: d, time: hhmm(o.block.start_time), title: o.block.title, sub: k.label + (note ? " · 📝 " + note : ""), color: k.color });
         }
       }
     }
@@ -31,7 +34,8 @@ export default function PlanSearch({ onPick }: { onPick: (date: string) => void 
       for (const ev of list) {
         const gk = googleKind(ev.title, googleMarks.find((x) => x.uid === ev.uid && x.date === d), googleRules);
         const k = kindInfo(gk.kind, gk.custom, customKinds);
-        if ((ev.title + " " + k.label).toLowerCase().includes(query)) out.push({ date: d, time: ev.allDay ? "ganzt." : ev.start, title: ev.title, sub: "Google · " + k.label, color: k.color, g: true });
+        const note = googleMarks.find((x) => x.uid === ev.uid && x.date === d)?.note ?? "";
+        if ((ev.title + " " + k.label + " " + note).toLowerCase().includes(query)) out.push({ date: d, time: ev.allDay ? "ganzt." : ev.start, title: ev.title, sub: "Google · " + k.label + (note ? " · 📝 " + note : ""), color: k.color, g: true });
       }
     }
     for (const e of exams) {
@@ -50,7 +54,7 @@ export default function PlanSearch({ onPick }: { onPick: (date: string) => void 
     <section className="card search-card">
       <div className="search">
         <span aria-hidden>🔍</span>
-        <input type="text" enterKeyHint="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Suchen: z. B. Fahrstunde, KLR, Arbeit …" aria-label="Im Plan suchen" />
+        <input type="text" enterKeyHint="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Suchen: Termine, Notizen, z. B. Fahrstunde, KLR …" aria-label="Im Plan suchen" />
         {q && <button className="icon-btn" onClick={() => setQ("")} aria-label="Suche leeren">✕</button>}
       </div>
       {query.length >= 2 && (

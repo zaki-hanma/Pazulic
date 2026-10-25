@@ -10,6 +10,7 @@ import GRow from "../components/GRow";
 import { useGoogle } from "../lib/google";
 import PlanSearch from "../components/PlanSearch";
 import TrashSheet from "../components/TrashSheet";
+import TimerCard from "../components/TimerCard";
 import { googleKind } from "../lib/labels";
 import Sheet from "../components/Sheet";
 import BlockDetail from "../components/BlockDetail";
@@ -18,7 +19,7 @@ import BlockForm from "../components/BlockForm";
 type View = "liste" | "kalender";
 
 export default function Plan() {
-  const { blocks, exams, toggleDone, customKinds, googleMarks, googleRules } = useStore();
+  const { blocks, exams, toggleDone, customKinds, googleMarks, googleRules, timer } = useStore();
   const [view, setView] = useState<View>(() => { try { return (localStorage.getItem("plan-view") as View) || "liste"; } catch { return "liste"; } });
   const [day, setDay] = useState(today());
   const [month, setMonth] = useState(() => today().slice(0, 7));
@@ -66,6 +67,8 @@ export default function Plan() {
         </div>
         </div>
       </header>
+
+      {timer && <TimerCard />}
 
       <PlanSearch onPick={(d) => { pick(d); setTimeout(() => document.getElementById("day-list")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); }} />
 

@@ -22,7 +22,7 @@ function Alltag({ blocks }: { blocks: Block[] }) {
   const t = today();
   const [month, setMonth] = useState(t.slice(0, 7));
   const shift = (n: number) => { const d = parseYmd(month + "-01"); d.setMonth(d.getMonth() + n); setMonth(ymd(d).slice(0, 7)); };
-  const { customKinds, googleMarks, googleRules } = useStore();
+  const { customKinds, googleMarks, googleRules, activityLogs } = useStore();
   const google = useGoogle().byDate;
   const data = useMemo(() => {
     const per = new Map<string, { label: string; color: string; m: number; n: number }>();
@@ -36,8 +36,11 @@ function Alltag({ blocks }: { blocks: Block[] }) {
     for (let d = month + "-01"; d.startsWith(month) && d <= t; d = addDays(d, 1)) {
       days++;
       for (const o of occurrencesOn(blocks, d)) {
-        if (isStudy(o.block.kind) || !o.done) continue; // nur abgehakte Einträge = wirklich gemacht
-        add(o.block.kind, o.block.custom_kind_id, Math.max(0, minutesBetween(o.block.start_time.slice(0, 5), o.block.end_time.slice(0, 5))));
+        if (isStudy(o.block.kind)) continue;
+        // gemessene Zeit (Start/Stopp oder von Hand) zählt zuerst, sonst die geplante Dauer, wenn abgehakt
+        const logged = activityLogs.filter((l) => l.block_id === o.block.id && l.date === d).reduce((a, l) => a + l.minutes, 0);
+        if (logged > 0) add(o.block.kind, o.block.custom_kind_id, logged);
+        else if (o.done) add(o.block.kind, o.block.custom_kind_id, Math.max(0, minutesBetween(o.block.start_time.slice(0, 5), o.block.end_time.slice(0, 5))));
       }
     }
     // Abgehakte Google-Termine
@@ -50,7 +53,7 @@ function Alltag({ blocks }: { blocks: Block[] }) {
       add(gk.kind, gk.custom, min);
     }
     return { rows: [...per.entries()].map(([k, v]) => ({ k, ...v })).sort((a, b) => b.m - a.m), days };
-  }, [blocks, month, t, customKinds, googleMarks, googleRules, google]);
+  }, [blocks, month, t, customKinds, googleMarks, googleRules, google, activityLogs]);
   const max = Math.max(1, ...data.rows.map((r) => r.m));
   const total = data.rows.reduce((a, r) => a + r.m, 0);
   const [y, m] = month.split("-").map(Number);
@@ -75,7 +78,7 @@ function Alltag({ blocks }: { blocks: Block[] }) {
           </>
         )}
       </section>
-      <p className="muted small center">Gezählt wird nur, was du mit ✓ abgehakt hast – Plan-Einträge und Google-Termine (Arbeit, Unterwegs, Termine, Schlafen, eigene Arten …). Lernen siehst du im Reiter „Lernen“.</p>
+      <p className="muted small center">Gezählt wird die gemessene Zeit (▶ Start/Stopp oder von Hand). Ohne Messung zählt die geplante Dauer, wenn du den Eintrag mit ✓ abgehakt hast – Plan-Einträge und Google-Termine (Arbeit, Unterwegs, Termine, Schlafen, eigene Arten …). Lernen siehst du im Reiter „Lernen“.</p>
     </>
   );
 }

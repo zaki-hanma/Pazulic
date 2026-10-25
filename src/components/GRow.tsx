@@ -6,13 +6,14 @@ import { KINDS, KIND_LABEL } from "../lib/types";
 import type { GoogleMark, Kind } from "../lib/types";
 import { googleKind, kindInfo } from "../lib/labels";
 import NewKind from "./NewKind";
+import NoteBox from "./NoteBox";
 import { fmtMin, longDate, minutesBetween } from "../lib/dates";
 import Sheet from "./Sheet";
 
 export const gDuration = (ev: GEvent) => (ev.allDay ? 0 : Math.max(0, minutesBetween(ev.start, ev.end)));
 
 function GDetail({ ev, onClose }: { ev: GEvent; onClose: () => void }) {
-  const { googleMarks, saveGoogleMark, customKinds, googleRules, saveGoogleRule } = useStore();
+  const { googleMarks, saveGoogleMark, customKinds, googleRules, saveGoogleRule, timer, setTimer } = useStore();
   const m = googleMarks.find((x) => x.uid === ev.uid && x.date === ev.date);
   const [min, setMin] = useState(m?.minutes != null ? String(m.minutes) : "");
   const gk = googleKind(ev.title, m, googleRules);
@@ -51,6 +52,12 @@ function GDetail({ ev, onClose }: { ev: GEvent; onClose: () => void }) {
       {adding && <NewKind start={ev.title} onSaved={(k) => { setAdding(false); setArt("sonstiges", k.id); }} onCancel={() => setAdding(false)} />}
 
       <div className="detail-actions">
+        <button className="btn primary" onClick={() => {
+          if (timer && !window.confirm("Es läuft schon ein Timer. Den alten verwerfen und neu starten?")) return;
+          setTimer({ block_id: null, goal_id: null, running: true, started_at: new Date().toISOString(), acc_ms: 0,
+            meta: { mode: "google", uid: ev.uid, date: ev.date, title: ev.title, kindLabel: kindInfo(gk.kind, gk.custom, customKinds).label } });
+          onClose();
+        }}>▶ Start</button>
         <button className={"btn" + (m?.done ? "" : " primary")} onClick={() => save({ done: !m?.done })}>{m?.done ? "✓ Erledigt (rückgängig)" : "✓ Abhaken"}</button>
       </div>
 
@@ -60,6 +67,8 @@ function GDetail({ ev, onClose }: { ev: GEvent; onClose: () => void }) {
         <button className="btn" onClick={() => save({ minutes: min === "" ? null : Math.min(1440, Math.max(0, parseInt(min, 10) || 0)), done: true })}>Speichern</button>
       </div>
       <p className="muted small">Die Zeit zählt in der Analyse (Alltag), sobald der Termin abgehakt ist. Ohne Eingabe zählt die geplante Dauer.</p>
+
+      <NoteBox value={m?.note ?? ""} onSave={(t) => save({ note: t.trim() || null, title: ev.title })} />
 
       <label className="lbl">Aus Pazulic entfernen</label>
       <div className="detail-actions">
@@ -73,8 +82,10 @@ function GDetail({ ev, onClose }: { ev: GEvent; onClose: () => void }) {
 
 /** Termin aus Google Kalender – abhaken, Zeit eintragen, ausblenden. */
 function GRow({ ev }: { ev: GEvent }) {
-  const { googleMarks, saveGoogleMark, customKinds, googleRules } = useStore();
+  const { googleMarks, saveGoogleMark, customKinds, googleRules, timer, setTimer } = useStore();
   const [open, setOpen] = useState(false);
+  const meta = (timer?.meta ?? {}) as { uid?: string; date?: string };
+  const mine = !!timer && meta.uid === ev.uid && meta.date === ev.date;
   const m = googleMarks.find((x) => x.uid === ev.uid && x.date === ev.date);
   const done = !!m?.done;
   const gk = googleKind(ev.title, m, googleRules);
@@ -84,7 +95,11 @@ function GRow({ ev }: { ev: GEvent }) {
       <button className="check" onClick={() => saveGoogleMark({ uid: ev.uid, date: ev.date, done: !done })} aria-label={done ? "Nicht erledigt" : "Abhaken"}>{done ? "✓" : ""}</button>
       <button className="occ-main" onClick={() => setOpen(true)}>
         <span className="occ-time mono">{ev.allDay ? "ganzt." : ev.start}{!ev.allDay && <small>{ev.end}</small>}</span>
-        <span className="occ-text"><b>{ev.title}</b><small className="muted"><span className="gtag">G</span> {k.label}{m?.minutes != null ? " · " + fmtMin(m.minutes) : ""}</small></span>
+        <span className="occ-text"><b>{ev.title}</b><small className="muted"><span className="gtag">G</span> {k.label}{m?.minutes != null ? " · " + fmtMin(m.minutes) : ""}</small>{m?.note && <span className="occ-note">📝 {m.note}</span>}</span>
+      </button>
+      <button className={"play" + (mine ? " on" : "")} aria-label={mine ? "Timer läuft" : "Start"}
+        onClick={() => { if (mine) { window.scrollTo({ top: 0, behavior: "smooth" }); return; } if (timer && !window.confirm("Es läuft schon ein Timer. Den alten verwerfen und hier neu starten?")) return; setTimer({ block_id: null, goal_id: null, running: true, started_at: new Date().toISOString(), acc_ms: 0, meta: { mode: "google", uid: ev.uid, date: ev.date, title: ev.title, kindLabel: k.label } }); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+        {mine ? "●" : "▶"}
       </button>
       {open && <Sheet title="Google-Termin" onClose={() => setOpen(false)}><GDetail ev={ev} onClose={() => setOpen(false)} /></Sheet>}
     </li>

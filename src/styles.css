@@ -339,3 +339,9 @@ input.num { width: 64px; flex: none !important; text-align: center; }
 .trash-actions { display: flex; gap: 6px; }
 .check-steps { padding-left: 20px; display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
 .link:disabled { color: var(--muted); text-decoration: none; cursor: default; }
+textarea.note { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.07); color: var(--text); font: inherit; resize: vertical; min-height: 72px; }
+.occ-note { display: block; font-size: .78rem; color: var(--muted); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.play { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--text); font-size: .8rem; display: grid; place-items: center; }
+.play:hover { background: rgba(255,255,255,.16); }
+.play.on { background: var(--green); color: #06210f; border-color: var(--green); animation: pulse 1.6s infinite; }
+@keyframes pulse { 50% { opacity: .55; } }
