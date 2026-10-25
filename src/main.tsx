@@ -19,7 +19,7 @@ async function boot() {
   const h = window.location.hash;
   if (h.includes("access_token=") || h.includes("error_description=")) {
     const p = new URLSearchParams(h.replace(/^#/, ""));
-    if (p.get("type") === "recovery") sessionStorage.setItem("pw-recovery", "1");
+    if (p.get("type") === "recovery" || p.get("type") === "invite") sessionStorage.setItem("pw-recovery", "1");
     if (p.get("error_description")) sessionStorage.setItem("auth-error", p.get("error_code") === "otp_expired" ? "Dieser Link funktioniert nicht mehr. Meist liegt es daran, dass eine neuere E-Mail geschickt wurde (dann gilt nur die neueste) oder der Link schon benutzt wurde. Versuch dich einfach anzumelden – vielleicht ist dein Konto schon bestätigt." : p.get("error_description")!);
     await supabase.auth.getSession();
     history.replaceState(null, "", window.location.pathname + "#/");
