@@ -4,8 +4,12 @@ import Logo from "../components/Logo";
 import Petals from "../components/Petals";
 import { Link } from "react-router-dom";
 
+const RATE = "Es wurden gerade zu viele E-Mails verschickt. Bitte warte etwa eine Stunde und versuche es dann nochmal.";
+
 export default function Auth() {
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register" | "check">("login");
+  const [code, setCode] = useState("");
+  const [cool, setCool] = useState(0);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [pw, setPw] = useState("");
@@ -22,20 +26,70 @@ export default function Auth() {
     setBusy(true); setMsg(null);
     if (mode === "login") {
       const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
-      if (error) setMsg({ ok: false, text: error.message.includes("Invalid") ? "E-Mail oder Passwort ist falsch." : error.message.includes("confirm") ? "Bitte bestätige zuerst deine E-Mail (Link im Postfach)." : "Anmelden hat nicht geklappt: " + error.message });
+      if (error) {
+        if (error.message.includes("confirm")) { setMode("check"); setMsg({ ok: false, text: "Deine E-Mail ist noch nicht bestätigt. Öffne die NEUESTE E-Mail von Pazulic (auch im Spam schauen) oder gib den Code ein." }); }
+        else setMsg({ ok: false, text: error.message.includes("Invalid") ? "E-Mail oder Passwort ist falsch." : "Anmelden hat nicht geklappt: " + error.message });
+      }
     } else {
       if (pw.length < 8) { setMsg({ ok: false, text: "Das Passwort braucht mindestens 8 Zeichen." }); setBusy(false); return; }
       const { data, error } = await supabase.auth.signUp({ email, password: pw, options: { emailRedirectTo: location.origin + location.pathname, data: { name: name.trim() } } });
-      if (error) setMsg({ ok: false, text: "Registrieren hat nicht geklappt: " + error.message });
-      else if (!data.session) setMsg({ ok: true, text: "Fast fertig! Öffne die E-Mail von uns und klicke auf den Link. Danach kannst du dich anmelden." });
+      if (error) setMsg({ ok: false, text: error.message.includes("rate") ? RATE : "Registrieren hat nicht geklappt: " + error.message });
+      else if (!data.session) { setMode("check"); startCool(); setMsg({ ok: true, text: "Fast fertig! Wir haben dir eine E-Mail geschickt. Klicke auf den Link darin – oder gib den Code aus der E-Mail hier ein." }); }
     }
     setBusy(false);
   }
 
+  function startCool() {
+    setCool(60);
+    const t = window.setInterval(() => setCool((c) => { if (c <= 1) { window.clearInterval(t); return 0; } return c - 1; }), 1000);
+  }
+
+  async function verifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(code.trim())) { setMsg({ ok: false, text: "Der Code hat 6 Ziffern." }); return; }
+    setBusy(true);
+    const { error } = await supabase.auth.verifyOtp({ email, token: code.trim(), type: "signup" });
+    setBusy(false);
+    if (error) setMsg({ ok: false, text: "Der Code ist falsch oder abgelaufen. Nimm den Code aus der NEUESTEN E-Mail." });
+  }
+
+  async function resend() {
+    if (!email) { setMode("login"); setMsg({ ok: false, text: "Schreib zuerst deine E-Mail-Adresse hinein." }); return; }
+    const { error } = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: location.origin + location.pathname } });
+    if (error) setMsg({ ok: false, text: error.message.includes("rate") || error.message.includes("seconds") ? RATE : error.message });
+    else { startCool(); setMsg({ ok: true, text: "Neue E-Mail ist unterwegs. Wichtig: Nur die NEUESTE E-Mail funktioniert – ältere Links sind dann ungültig." }); }
+  }
+
+  if (mode === "check") return (
+    <div className="app auth">
+      <div className="bg" style={{ backgroundImage: "url(./backgrounds/bibliothek.jpg)" }} />
+      <div className="bg-shade" />
+      <Petals />
+      <form className="card auth-card" onSubmit={verifyCode}>
+        <div className="auth-logo"><Logo size={72} /></div>
+        <h1>E-Mail bestätigen</h1>
+        <p className="muted">Wir haben eine E-Mail an <b>{email}</b> geschickt.</p>
+        <ol className="small check-steps">
+          <li>Öffne die <b>neueste</b> E-Mail von Pazulic (auch im <b>Spam</b>-Ordner schauen).</li>
+          <li>Klicke auf den Link – <b>oder</b> gib unten den 6-stelligen Code ein.</li>
+          <li>Bitte <b>nicht mehrmals</b> auf „Registrieren“ drücken: Jede neue E-Mail macht die alte ungültig.</li>
+        </ol>
+        <label className="lbl" htmlFor="code">Code aus der E-Mail (falls vorhanden)</label>
+        <input id="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="123456" />
+        {msg && <p className={msg.ok ? "ok" : "err"}>{msg.text}</p>}
+        <button className="btn primary big" disabled={busy || code.length !== 6}>{busy ? "Bitte warten …" : "Bestätigen"}</button>
+        <div className="auth-links">
+          <button type="button" className="link" disabled={cool > 0} onClick={resend}>{cool > 0 ? `E-Mail nochmal senden (in ${cool} s)` : "E-Mail nochmal senden"}</button>
+          <button type="button" className="link" onClick={() => { setMode("login"); setMsg(null); }}>Zur Anmeldung</button>
+        </div>
+      </form>
+    </div>
+  );
+
   async function reset() {
     if (!email) { setMsg({ ok: false, text: "Schreib zuerst deine E-Mail oben hinein, dann tippe nochmal auf „Passwort vergessen?“." }); return; }
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
-    setMsg(error ? { ok: false, text: error.message.includes("rate") ? "Zu viele Versuche. Bitte warte etwas und versuche es später nochmal." : error.message } : { ok: true, text: "Wenn es ein Konto mit dieser E-Mail gibt, kommt gleich eine E-Mail. Öffne den Link darin (auch im Spam-Ordner schauen) und wähle ein neues Passwort." });
+    setMsg(error ? { ok: false, text: error.message.includes("rate") || error.message.includes("seconds") ? RATE : error.message } : { ok: true, text: "Wenn es ein Konto mit dieser E-Mail gibt, kommt gleich eine E-Mail. Öffne den Link darin (auch im Spam-Ordner schauen) und wähle ein neues Passwort." });
   }
 
   return (
