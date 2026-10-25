@@ -375,7 +375,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
-  const signOut = async () => { await supabase.auth.signOut(); };
+  // Abmelden: immer lokal abmelden, auch wenn das Internet schlecht ist oder der Server nicht antwortet.
+  const signOut = async () => {
+    try {
+      await Promise.race([supabase.auth.signOut({ scope: "local" }), new Promise((r) => setTimeout(r, 3000))]);
+    } catch { /* egal – wir räumen unten trotzdem auf */ }
+    try {
+      for (const k of Object.keys(localStorage)) if (k.startsWith("sb-") && k.endsWith("-auth-token")) localStorage.removeItem(k);
+      sessionStorage.removeItem("pw-recovery");
+    } catch { /* egal */ }
+    setAuth(null);
+    window.location.replace(window.location.pathname + "#/");
+  };
 
   const value = useMemo<Store>(() => ({
     auth, authReady, ready, exams, blocks, trash, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, googleRules, settings, timer, error, clearError: () => setError(null),
