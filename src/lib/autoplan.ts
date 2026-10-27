@@ -24,7 +24,9 @@ const toT = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${Str
 /** Freie Zeitfenster eines Tages (in Minuten ab 0:00). */
 function freeSlots(date: string, blocks: Block[], google: Map<string, GEvent[]>, from: number, to: number, nowMin: number | null) {
   const busy: [number, number][] = [];
-  for (const o of occurrencesOn(blocks, date)) busy.push([toMin(o.block.start_time) - 10, toMin(o.block.end_time) + 10]);
+  for (const o of occurrencesOn(blocks, date)) { const a = toMin(o.block.start_time), b = toMin(o.block.end_time); busy.push(b > a ? [a - 10, b + 10] : [a - 10, 1440]); }
+  // Über Mitternacht vom Vortag (z. B. Schlafen bis 06:00)
+  for (const o of occurrencesOn(blocks, addDays(date, -1))) { const a = toMin(o.block.start_time), b = toMin(o.block.end_time); if (b <= a) busy.push([0, b + 10]); }
   for (const g of google.get(date) ?? []) if (!g.allDay) busy.push([toMin(g.start) - 10, toMin(g.end) + 10]);
   busy.sort((a, b) => a[0] - b[0]);
   const slots: [number, number][] = [];

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useStore } from "../lib/store";
 import type { Block, Kind, RepeatRule } from "../lib/types";
 import { KINDS, KIND_COLOR, KIND_LABEL, isStudy } from "../lib/types";
-import { hhmm, minutesBetween, fmtMin, isoWeekday, parseYmd } from "../lib/dates";
+import { hhmm, minutesBetween, fmtMin, isoWeekday, parseYmd, overnight } from "../lib/dates";
 import { isRepeating, learnMinutes, ruleText } from "../lib/plan";
 import NewKind from "./NewKind";
 import { DEFAULT_REMIND, REMIND_OPTIONS, remindText } from "../lib/push";
@@ -54,7 +54,7 @@ export default function BlockForm({ block, date, onDone }: Props) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (dur <= 0) { setMsg("Die End-Zeit muss nach der Start-Zeit sein."); return; }
+    if (dur <= 0) { setMsg("Start und Ende dürfen nicht gleich sein."); return; }
     let t = title.trim();
     if (!t && study && exam) t = topics.map((id) => exam.topics.find((x) => x.id === id)?.short || exam.topics.find((x) => x.id === id)?.name).filter(Boolean).join(" + ");
     if (!t) t = customId ? customKinds.find((x) => x.id === customId)?.name ?? KIND_LABEL[kind] : KIND_LABEL[kind];
@@ -123,7 +123,7 @@ export default function BlockForm({ block, date, onDone }: Props) {
         <div><label className="lbl" htmlFor="f-end">Bis</label><input id="f-end" type="time" value={end} onChange={(e) => setEnd(e.target.value)} required /></div>
       </div>
       <p className="muted small">
-        Dauer: {dur > 0 ? fmtMin(dur) : "–"}
+        Dauer: {dur > 0 ? fmtMin(dur) : "–"}{dur > 0 && overnight(start, end) && <> · 🌙 endet am nächsten Tag</>}
         {study && dur > 0 && <> · Ziel-Lernzeit: <b className="mono">{fmtMin(planned)}</b> (Pomodoro 25 + 5)</>}
       </p>
 

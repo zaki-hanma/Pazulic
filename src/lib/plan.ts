@@ -1,6 +1,6 @@
 import type { Block, Occurrence, Session, Exam, RepeatRule } from "./types";
 import { isStudy } from "./types";
-import { at, isoWeekday, minutesBetween, parseYmd, addDays } from "./dates";
+import { at, isoWeekday, minutesBetween, parseYmd, addDays, overnight } from "./dates";
 
 /** Pomodoro: je 30 Min. = 25 Min. Lernen, Rest bis max. 25 Min. */
 export function learnMinutes(start: string, end: string): number {
@@ -86,12 +86,20 @@ export function ruleText(b: Block): string {
   return t;
 }
 
+/** Ende als Datum/Zeit – bei Einträgen über Mitternacht am nächsten Tag. */
+export const endAt = (o: Occurrence) => at(overnight(o.block.start_time, o.block.end_time) ? addDays(o.date, 1) : o.date, o.block.end_time);
+
 export function isNow(o: Occurrence, now = new Date()): boolean {
-  return at(o.date, o.block.start_time) <= now && now < at(o.date, o.block.end_time);
+  return at(o.date, o.block.start_time) <= now && now < endAt(o);
 }
 
 export function isPast(o: Occurrence, now = new Date()): boolean {
-  return at(o.date, o.block.end_time) <= now;
+  return endAt(o) <= now;
+}
+
+/** Einträge vom Vortag, die über Mitternacht gehen und jetzt noch laufen (z. B. Schlafen). */
+export function runningFromYesterday(blocks: Block[], date: string, now = new Date()): Occurrence[] {
+  return occurrencesOn(blocks, addDays(date, -1)).filter((o) => overnight(o.block.start_time, o.block.end_time) && isNow(o, now));
 }
 
 export function examProgress(exam: Exam, blocks: Block[], sessions: Session[]) {

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useStore } from "../lib/store";
 import { useNow } from "../lib/useNow";
 import { at, countdown, ferienName, holidayName, longDate, today, ymd } from "../lib/dates";
-import { isNow, isPast, occurrencesOn, examProgress } from "../lib/plan";
+import { isNow, isPast, occurrencesOn, examProgress, runningFromYesterday } from "../lib/plan";
 import { examName, topicNames } from "../lib/labels";
 import type { Occurrence } from "../lib/types";
 import TimerCard from "../components/TimerCard";
@@ -25,7 +25,7 @@ export default function Heute() {
 
   const occs = useMemo(() => occurrencesOn(blocks, d), [blocks, d]);
   const gev = useGoogle().byDate.get(d) ?? [];
-  const current = occs.find((o) => isNow(o, now));
+  const current = occs.find((o) => isNow(o, now)) ?? runningFromYesterday(blocks, d, now)[0];
   const next = occs.find((o) => !isPast(o, now) && o !== current && at(o.date, o.block.start_time) > now);
   const upcoming = exams.filter((e) => at(e.date, e.time) > now);
   const nextExam = upcoming[0];

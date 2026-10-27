@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useStore } from "../lib/store";
 import type { Occurrence } from "../lib/types";
 import { isStudy } from "../lib/types";
-import { fmtMin, hhmm, longDate } from "../lib/dates";
+import { fmtMin, hhmm, longDate, minutesBetween, overnight } from "../lib/dates";
 import { isRepeating, learnedForBlock, ruleText } from "../lib/plan";
 import { examName, kindInfo, topicNames } from "../lib/labels";
 import BlockForm from "./BlockForm";
@@ -42,11 +42,11 @@ export default function BlockDetail({ occ, onClose }: { occ: Occurrence; onClose
     <div className="detail">
       <span className="pill" style={{ ["--c" as string]: k.color }}>{k.label}</span>
       <h3>{b.title}</h3>
-      <p className="muted">{longDate(occ.date)} · {hhmm(b.start_time)}–{hhmm(b.end_time)}</p>
+      <p className="muted">{longDate(occ.date)} · {hhmm(b.start_time)}–{hhmm(b.end_time)}{overnight(b.start_time, b.end_time) ? " (nächster Tag)" : ""}</p>
       {isRepeating(b) && <p className="muted small">↻ {ruleText(b)}</p>}
       {exam && <p>Klausur: <b>{examName(exam)}</b>{topics && <> · {topics}</>}</p>}
 
-      {!study && myLogs.length > 0 && <div className="kpis"><div><span className="muted small">Gebraucht</span><b className="mono">{fmtMin(myLogs.reduce((a, l) => a + l.minutes, 0))}</b></div><div><span className="muted small">Geplant</span><b className="mono">{fmtMin(Math.max(0, (Number(b.end_time.slice(0, 2)) * 60 + Number(b.end_time.slice(3, 5))) - (Number(b.start_time.slice(0, 2)) * 60 + Number(b.start_time.slice(3, 5)))))}</b></div></div>}
+      {!study && myLogs.length > 0 && <div className="kpis"><div><span className="muted small">Gebraucht</span><b className="mono">{fmtMin(myLogs.reduce((a, l) => a + l.minutes, 0))}</b></div><div><span className="muted small">Geplant</span><b className="mono">{fmtMin(minutesBetween(hhmm(b.start_time), hhmm(b.end_time)))}</b></div></div>}
       {study && (
         <div className="kpis">
           <div><span className="muted small">Ziel</span><b className="mono">{fmtMin(b.planned_minutes)}</b></div>

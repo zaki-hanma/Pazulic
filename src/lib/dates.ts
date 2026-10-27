@@ -50,8 +50,12 @@ export function shortDate(date: string): string {
 export function minutesBetween(a: string, b: string): number {
   const [ah, am] = a.split(":").map(Number);
   const [bh, bm] = b.split(":").map(Number);
-  return bh * 60 + bm - (ah * 60 + am);
+  const d = bh * 60 + bm - (ah * 60 + am);
+  return d < 0 ? d + 1440 : d; // über Mitternacht (z. B. 22:00–06:00 = 8 Std.)
 }
+
+/** Endet der Eintrag erst am nächsten Tag (z. B. Schlafen 22:00–06:00)? */
+export const overnight = (start: string, end: string) => end.slice(0, 5) <= start.slice(0, 5);
 
 export function fmtMin(m: number): string {
   m = Math.round(m);

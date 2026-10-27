@@ -3,7 +3,7 @@ import type { Occurrence } from "../lib/types";
 import { useStore } from "../lib/store";
 import { kindInfo } from "../lib/labels";
 import { isRepeating } from "../lib/plan";
-import { hhmm } from "../lib/dates";
+import { hhmm, overnight } from "../lib/dates";
 import { timerForBlock } from "../lib/startTimer";
 
 function OccRow({ occ, now, onOpen, onToggle, sub }: { occ: Occurrence; now?: boolean; onOpen: () => void; onToggle: () => void; sub?: string }) {
@@ -15,7 +15,7 @@ function OccRow({ occ, now, onOpen, onToggle, sub }: { occ: Occurrence; now?: bo
     <li className={"occ" + (occ.done ? " done" : "") + (now ? " now" : "")} style={{ ["--c" as string]: k.color }}>
       <button className="check" onClick={onToggle} aria-label={occ.done ? "Nicht erledigt" : "Abhaken"}>{occ.done ? "✓" : ""}</button>
       <button className="occ-main" onClick={onOpen}>
-        <span className="occ-time mono">{hhmm(b.start_time)}<small>{hhmm(b.end_time)}</small></span>
+        <span className="occ-time mono">{hhmm(b.start_time)}<small>{hhmm(b.end_time)}{overnight(b.start_time, b.end_time) ? " +1" : ""}</small></span>
         <span className="occ-text">
           <b>{b.title}</b>
           <small className="muted">{k.label}{sub ? ` · ${sub}` : ""}{isRepeating(b) ? " · ↻" : ""}</small>
