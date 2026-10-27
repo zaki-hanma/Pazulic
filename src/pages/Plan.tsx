@@ -15,6 +15,9 @@ import { googleKind } from "../lib/labels";
 import Sheet from "../components/Sheet";
 import BlockDetail from "../components/BlockDetail";
 import BlockForm from "../components/BlockForm";
+import VacationPrompt from "../components/VacationPrompt";
+import VacationSheet from "../components/VacationSheet";
+import { useVacations } from "../lib/vacation";
 
 type View = "liste" | "kalender";
 
@@ -26,6 +29,8 @@ export default function Plan() {
   const [open, setOpen] = useState<Occurrence | null>(null);
   const [add, setAdd] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
+  const [vacOpen, setVacOpen] = useState(false);
+  const vac = useVacations();
 
   const setV = (v: View) => { setView(v); try { localStorage.setItem("plan-view", v); } catch { /* egal */ } };
 
@@ -49,8 +54,7 @@ export default function Plan() {
 
   const shiftMonth = (n: number) => { const d = parseYmd(month + "-01"); d.setMonth(d.getMonth() + n); setMonth(ymd(d).slice(0, 7)); };
   const pick = (d: string) => { setDay(d); setMonth(d.slice(0, 7)); };
-  const URL_RE = /urlaub|vacation|betriebsferien/i;
-  const urlaubName = (d: string) => (google.get(d) ?? []).find((g) => g.allDay && URL_RE.test(g.title))?.title ?? null;
+  const urlaubName = vac.name;
   const special = holidayName(day) || ferienName(day);
   const urlaubDay = urlaubName(day);
   const [my, mm] = month.split("-").map(Number);
@@ -60,6 +64,7 @@ export default function Plan() {
       <header className="page-head row-between">
         <h1>Plan</h1>
         <div className="head-actions">
+        <button className="icon-btn" onClick={() => setVacOpen(true)} aria-label="Urlaub" title="Urlaub eintragen">🌴</button>
         <button className="icon-btn" onClick={() => setTrashOpen(true)} aria-label="Papierkorb" title="Papierkorb">🗑</button>
         <div className="seg">
           <button className={view === "liste" ? "on" : ""} onClick={() => setV("liste")}>Liste</button>
@@ -69,6 +74,7 @@ export default function Plan() {
       </header>
 
       {timer && <TimerCard />}
+      <VacationPrompt />
 
       <PlanSearch onPick={(d) => { pick(d); setTimeout(() => document.getElementById("day-list")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); }} />
 
@@ -109,7 +115,7 @@ export default function Plan() {
               );
             })}
           </div>
-          <p className="muted small legend"><i className="lg fer" /> Schulferien Niedersachsen <i className="lg url" /> Urlaub (Google) <i className="lg hol" /> Feiertag <i className="lg ex" /> Klausur <i className="lg" style={{ background: "#E8ECF3", borderRadius: "50%" }} /> Google</p>
+          <p className="muted small legend"><i className="lg fer" /> Schulferien Niedersachsen <i className="lg url" /> Urlaub <i className="lg hol" /> Feiertag <i className="lg ex" /> Klausur <i className="lg" style={{ background: "#E8ECF3", borderRadius: "50%" }} /> Google</p>
         </section>
       )}
 
@@ -136,6 +142,7 @@ export default function Plan() {
       </section>
 
       {open && <Sheet title="Eintrag" onClose={() => setOpen(null)}><BlockDetail occ={occurrencesOn(blocks, open.date).find((o) => o.block.id === open.block.id) ?? open} onClose={() => setOpen(null)} /></Sheet>}
+      {vacOpen && <Sheet title="Urlaub" onClose={() => setVacOpen(false)}><VacationSheet /></Sheet>}
       {trashOpen && <TrashSheet onClose={() => setTrashOpen(false)} />}
       {add && <Sheet title="Neuer Eintrag" onClose={() => setAdd(false)}><BlockForm date={day} onDone={() => setAdd(false)} /></Sheet>}
     </div>

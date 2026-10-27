@@ -345,3 +345,10 @@ textarea.note { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1p
 .play:hover { background: rgba(255,255,255,.16); }
 .play.on { background: var(--green); color: #06210f; border-color: var(--green); animation: pulse 1.6s infinite; }
 @keyframes pulse { 50% { opacity: .55; } }
+
+/* Urlaub */
+.vac-prompt { border-color: color-mix(in srgb, var(--urlaub) 55%, transparent); }
+.vac-prompt h2 { color: var(--urlaub); }
+.vac-list { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 8px; }
+.vac-list label { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,.05); cursor: pointer; }
+.vac-list input[type=checkbox] { width: 20px; height: 20px; flex: none; accent-color: var(--urlaub); }

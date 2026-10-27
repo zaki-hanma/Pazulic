@@ -39,6 +39,7 @@ interface Store {
   saveDayNote: (b: Block, date: string, text: string) => Promise<boolean>;
   addBlocks: (rows: (Partial<Block> & Pick<Block, "date" | "start_time" | "end_time" | "kind">)[]) => Promise<boolean>;
   skipOccurrence: (b: Block, date: string) => Promise<boolean>;
+  skipMany: (items: { b: Block; dates: string[] }[]) => Promise<boolean>;
   saveCustomKind: (k: { id?: string; name: string; color: string; remind_minutes?: number | null }) => Promise<CustomKind | null>;
   deleteCustomKind: (id: string) => Promise<boolean>;
   saveGoogleMark: (m: Partial<GoogleMark> & { uid: string; date: string }) => Promise<boolean>;
@@ -113,7 +114,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       supabase.from("long_goals").select("*").order("date"),
       supabase.from("grades").select("*"),
       supabase.from("report_grades").select("*"),
-      supabase.from("user_settings").select("google_ical_url, google_enabled, remind_defaults, timezone").maybeSingle(),
+      supabase.from("user_settings").select("google_ical_url, google_enabled, remind_defaults, timezone, vacations, vacation_choices").maybeSingle(),
       supabase.from("subjects").select("*").order("sort"),
       supabase.from("custom_kinds").select("*").order("created_at"),
       supabase.from("google_marks").select("*"),
@@ -224,6 +225,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const { error: err } = await supabase.from("plan_blocks").update({ skip_dates }).eq("id", b.id);
     if (err) { setError(FAIL); setBlocks((p) => p.map((x) => (x.id === b.id ? b : x))); return false; }
     return true;
+  };
+
+  const skipMany: Store["skipMany"] = async (items) => {
+    let ok = true;
+    for (const { b, dates } of items) {
+      if (!dates.length) continue;
+      const skip_dates = [...new Set([...(b.skip_dates ?? []), ...dates])];
+      const { error: err } = await supabase.from("plan_blocks").update({ skip_dates }).eq("id", b.id);
+      if (err) { ok = false; continue; }
+      setBlocks((p) => p.map((x) => (x.id === b.id ? { ...x, skip_dates } : x)));
+    }
+    if (!ok) setError(FAIL);
+    return ok;
   };
 
   const saveCustomKind: Store["saveCustomKind"] = async (k) => {
@@ -423,7 +437,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Store>(() => ({
     auth, authReady, ready, exams, blocks, trash, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, googleRules, activityLogs, settings, timer, error, clearError: () => setError(null),
-    saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, restoreBlock, purgeBlock, unskipOccurrence, saveDayNote, addBlocks, skipOccurrence, saveCustomKind, deleteCustomKind, saveGoogleMark, saveGoogleRule, deleteGoogleRule, toggleDone, addSession, deleteSession, addActivityLog, deleteActivityLog, setTimer, saveGrade, deleteGrade, saveReportGrade, saveSettings, saveSubjects, deleteSubject, reloadAll: loadAll, signOut,
+    saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, restoreBlock, purgeBlock, unskipOccurrence, saveDayNote, addBlocks, skipOccurrence, skipMany, saveCustomKind, deleteCustomKind, saveGoogleMark, saveGoogleRule, deleteGoogleRule, toggleDone, addSession, deleteSession, addActivityLog, deleteActivityLog, setTimer, saveGrade, deleteGrade, saveReportGrade, saveSettings, saveSubjects, deleteSubject, reloadAll: loadAll, signOut,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [auth, authReady, ready, exams, blocks, trash, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, googleRules, activityLogs, settings, timer, error]);
 

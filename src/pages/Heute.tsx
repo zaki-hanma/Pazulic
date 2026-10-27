@@ -13,6 +13,7 @@ import Sheet from "../components/Sheet";
 import BlockDetail from "../components/BlockDetail";
 import BlockForm from "../components/BlockForm";
 import Logo from "../components/Logo";
+import VacationPrompt from "../components/VacationPrompt";
 
 export default function Heute() {
   const { exams, blocks, sessions, timer, toggleDone, auth } = useStore();
@@ -59,6 +60,7 @@ export default function Heute() {
       })()}
 
       {timer && <TimerCard />}
+      <VacationPrompt />
 
       <div className="grid2">
         <section className="card now-card">
