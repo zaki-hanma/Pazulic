@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useStore } from "../lib/store";
-import { elapsedMs, fmtClock, POMO_MS, signal } from "../lib/timer";
+import { elapsedMs, fmtClock, POMO_MS } from "../lib/timer";
 import { today } from "../lib/dates";
 
 /** Großer Start/Stopp-Timer. Läuft auf allen Geräten gleich (Zustand in der Datenbank). */
 export default function TimerCard() {
   const { timer, setTimer, addSession, addActivityLog, googleMarks, saveGoogleMark, blocks, toggleDone } = useStore();
   const [now, setNow] = useState(Date.now());
-  const lastPomo = useRef<number>(-1);
   const running = !!timer?.running;
   const ms = elapsedMs(timer, now);
   const meta = (timer?.meta ?? {}) as { title?: string; subject?: string; topic?: string; lernfeld?: string; exam_id?: string | null; date?: string; mode?: "study" | "activity" | "google"; uid?: string; kindLabel?: string };
@@ -20,27 +19,17 @@ export default function TimerCard() {
     return () => window.clearInterval(t);
   }, [running]);
 
-  // Nach je 25 Min. Lernzeit: Ton + Vibration + automatisch Pause.
-  useEffect(() => {
-    if (!running || !pomo) return;
-    const n = Math.floor(ms / POMO_MS);
-    if (lastPomo.current === -1) { lastPomo.current = n; return; }
-    if (n > lastPomo.current) {
-      lastPomo.current = n;
-      signal();
-      setTimer({ ...timer!, running: false, started_at: null, acc_ms: ms, meta: { ...meta, pause: true } });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ms, running]);
-
   if (!timer) return null;
 
   const inPomo = ms % POMO_MS;
   const pct = (inPomo / POMO_MS) * 100;
 
   const toggle = () => {
-    if (running) setTimer({ ...timer, running: false, started_at: null, acc_ms: ms });
-    else { lastPomo.current = Math.floor(ms / POMO_MS); setTimer({ ...timer, running: true, started_at: new Date().toISOString(), acc_ms: ms, meta: { ...meta, pause: false } }); }
+    const t = Date.now();
+    const cur = elapsedMs(timer, t);
+    setNow(t); // Anzeige sofort aktualisieren – kein Springen
+    if (running) setTimer({ ...timer, running: false, started_at: null, acc_ms: cur });
+    else setTimer({ ...timer, running: true, started_at: new Date(t).toISOString(), acc_ms: cur, meta: { ...meta, pause: false } });
   };
 
   const stop = async () => {
@@ -66,19 +55,19 @@ export default function TimerCard() {
   };
 
   const cancel = () => { if (window.confirm("Timer verwerfen? Die Zeit wird NICHT gespeichert.")) setTimer(null); };
-  const isPause = !running && (meta as { pause?: boolean }).pause;
+
 
   return (
     <section className="card timer-card">
       <div className="timer-top">
-        <span className="pill" style={{ ["--c" as string]: running ? "var(--green)" : "var(--yellow)" }}>{running ? "● Läuft" : isPause && pomo ? "Pause! 5 Min. Wasser trinken 💧" : "Pausiert"}</span>
+        <span className="pill" style={{ ["--c" as string]: running ? "var(--green)" : "var(--yellow)" }}>{running ? "● Läuft" : "Pausiert"}</span>
         <span className="muted small">{mode === "study" ? <>{meta.subject}{meta.lernfeld ? " · " + meta.lernfeld : ""}</> : <>{mode === "google" ? "Google · " : ""}{meta.kindLabel}</>}</span>
       </div>
       <h3 className="timer-title">{meta.title || meta.topic || (pomo ? "Lernen" : "Aufgabe")}</h3>
       <div className="timer-clock mono">{fmtClock(ms)}</div>
       {pomo ? <>
         <div className="bar"><i style={{ width: `${pct}%`, background: "var(--blue)" }} /></div>
-        <p className="muted small">Pomodoro: {fmtClock(POMO_MS - inPomo)} bis zur Pause</p>
+        <p className="muted small">{Math.floor(ms / POMO_MS)} × 25 Min. geschafft · nächste 25 Min. in {fmtClock(POMO_MS - inPomo)}</p>
       </> : <p className="muted small center">Die Zeit wird gespeichert, wenn du auf „Stopp & speichern“ tippst.</p>}
       <div className="timer-actions">
         <button className="btn primary big" onClick={toggle}>{running ? "Pause" : "Weiter"}</button>

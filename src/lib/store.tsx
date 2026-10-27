@@ -94,6 +94,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const uid = auth?.user.id;
   const loading = useRef(false);
+  const timerTouched = useRef(0); // Zeitpunkt der letzten lokalen Timer-Änderung
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { setAuth(data.session); setAuthReady(true); });
@@ -130,7 +131,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setCustomKinds(ck.data as CustomKind[]); setGoogleMarks(gm.data as GoogleMark[]); setGoogleRules(grl.data as GoogleRule[]); setActivityLogs(al.data as ActivityLog[]);
     setSubjects((sj.data as SubjectRow[]).map((x) => ({ ...x, hours: Number(x.hours) })));
     if (st.data) setSettingsState(st.data as Settings);
-    setTimerState((t.data as TimerState) ?? null);
+    // Direkt nach Start/Pause/Weiter nicht mit evtl. älterem Server-Stand überschreiben (verhindert Springen)
+    if (Date.now() - timerTouched.current > 4000) setTimerState((t.data as TimerState) ?? null);
     setReady(true);
   }, [uid]);
 
@@ -350,6 +352,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const setTimer: Store["setTimer"] = async (t) => {
+    timerTouched.current = Date.now();
     setTimerState(t);
     if (!t) { await supabase.from("timer_state").delete().eq("user_id", uid!); return; }
     const { error: err } = await supabase.from("timer_state").upsert({ ...t, user_id: uid, updated_at: new Date().toISOString() });

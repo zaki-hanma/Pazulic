@@ -4,7 +4,8 @@ export const POMO_MS = 25 * 60 * 1000;
 
 export function elapsedMs(t: TimerState | null, now = Date.now()): number {
   if (!t) return 0;
-  return t.acc_ms + (t.running && t.started_at ? now - new Date(t.started_at).getTime() : 0);
+  // Nie rückwärts zählen (z. B. direkt nach „Weiter“, bevor die Uhr neu tickt)
+  return t.acc_ms + (t.running && t.started_at ? Math.max(0, now - new Date(t.started_at).getTime()) : 0);
 }
 
 export function fmtClock(ms: number): string {
