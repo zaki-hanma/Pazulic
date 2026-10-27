@@ -7,7 +7,7 @@ export const REMIND_OPTIONS: { v: number; t: string }[] = [
   { v: -1, t: "keine" }, { v: 0, t: "zum Start" }, { v: 5, t: "5 Min. vorher" }, { v: 10, t: "10 Min. vorher" },
   { v: 15, t: "15 Min. vorher" }, { v: 30, t: "30 Min. vorher" }, { v: 60, t: "1 Std. vorher" }, { v: 120, t: "2 Std. vorher" }, { v: 1440, t: "1 Tag vorher" },
 ];
-export const DEFAULT_REMIND: Record<string, number> = { lernen: 5, wiederholung: 5, unterwegs: -1, arbeit: -1, _other: 30, _google: 30 };
+export const DEFAULT_REMIND: Record<string, number> = { lernen: 5, wiederholung: 5, unterwegs: -1, arbeit: -1, urlaub: -1, frei: -1, _other: 30, _google: 30 };
 export const remindText = (v: number) => REMIND_OPTIONS.find((o) => o.v === v)?.t ?? `${v} Min. vorher`;
 
 export const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;

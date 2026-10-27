@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useStore } from "../lib/store";
 import { affectedBy, useVacations } from "../lib/vacation";
 import type { Period } from "../lib/vacation";
+import { OFF_ICON, OFF_LABEL } from "../lib/vacation";
 import { isStudy } from "../lib/types";
 import { kindInfo } from "../lib/labels";
 import { hhmm, shortDate, today } from "../lib/dates";
@@ -27,9 +28,9 @@ export default function VacationPrompt() {
   return (
     <>
       {todo.map(({ p, list }) => (
-        <section key={p.key} className="card vac-prompt">
-          <h2>🌴 {p.name}: {range(p)}</h2>
-          <p>In deinem Urlaub stehen noch <b>{list.reduce((a, x) => a + x.dates.length, 0)} Alltags-Termine</b> im Plan (z. B. {[...new Set(list.map((x) => x.b.title))].slice(0, 3).join(", ")}).</p>
+        <section key={p.key} className={"card vac-prompt" + (p.type === "frei" ? " frei" : "")}>
+          <h2>{OFF_ICON[p.type]} {p.name}: {range(p)}</h2>
+          <p>{p.type === "frei" ? "An deinem freien Tag" : "In deinem Urlaub"} stehen noch <b>{list.reduce((a, x) => a + x.dates.length, 0)} Alltags-Termine</b> im Plan (z. B. {[...new Set(list.map((x) => x.b.title))].slice(0, 3).join(", ")}).</p>
           <p className="muted small">Sollen sie für diese Zeit gelöscht werden? Du bekommst dann auch keine Erinnerungen dafür.</p>
           <div className="detail-actions">
             <button className="btn primary" onClick={() => setOpen(p)}>Auswählen & löschen</button>
@@ -37,7 +38,7 @@ export default function VacationPrompt() {
           </div>
         </section>
       ))}
-      {open && <Sheet title="Urlaub: Termine löschen" onClose={() => setOpen(null)}><Pick p={open} onDone={() => setOpen(null)} decide={decide} /></Sheet>}
+      {open && <Sheet title={OFF_LABEL[open.type] + ": Termine löschen"} onClose={() => setOpen(null)}><Pick p={open} onDone={() => setOpen(null)} decide={decide} /></Sheet>}
     </>
   );
 }

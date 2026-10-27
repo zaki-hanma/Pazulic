@@ -2,6 +2,9 @@ import type { Block, Exam } from "./types";
 import type { CustomKind, GoogleMark, GoogleRule, Kind } from "./types";
 import { KIND_COLOR, KIND_LABEL } from "./types";
 
+export const URL_RE = /urlaub|vacation|betriebsferien/i;
+export const FREI_RE = /überstunden|ueberstunden|freizeitausgleich|gleittag|\bfrei(er tag)?\b/i;
+
 export function examName(e?: Exam | null) { return e ? e.short_name || e.subject : ""; }
 
 export function topicNames(b: Block, exams: Exam[]): string {
@@ -23,5 +26,7 @@ export function googleKind(title: string, mark: GoogleMark | undefined, rules: G
   const t = title.toLowerCase();
   const r = [...rules].sort((a, b) => b.match.length - a.match.length).find((x) => t.includes(x.match));
   if (r) return { kind: r.kind ?? "sonstiges", custom: r.custom_kind_id, rule: r };
+  if (URL_RE.test(title)) return { kind: "urlaub", custom: null, rule: null };
+  if (FREI_RE.test(title)) return { kind: "frei", custom: null, rule: null };
   return { kind: "termin", custom: null, rule: null };
 }

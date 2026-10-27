@@ -54,9 +54,10 @@ export default function Plan() {
 
   const shiftMonth = (n: number) => { const d = parseYmd(month + "-01"); d.setMonth(d.getMonth() + n); setMonth(ymd(d).slice(0, 7)); };
   const pick = (d: string) => { setDay(d); setMonth(d.slice(0, 7)); };
-  const urlaubName = vac.name;
+  const offCls = (d: string) => { const o = vac.off(d); return o ? (o.type === "frei" ? "frei" : "url") : ""; };
+  const offName = (d: string) => vac.off(d)?.name ?? null;
   const special = holidayName(day) || ferienName(day);
-  const urlaubDay = urlaubName(day);
+  const urlaubDay = offName(day);
   const [my, mm] = month.split("-").map(Number);
 
   return (
@@ -64,7 +65,7 @@ export default function Plan() {
       <header className="page-head row-between">
         <h1>Plan</h1>
         <div className="head-actions">
-        <button className="icon-btn" onClick={() => setVacOpen(true)} aria-label="Urlaub" title="Urlaub eintragen">🌴</button>
+        <button className="icon-btn" onClick={() => setVacOpen(true)} aria-label="Urlaub" title="Urlaub / Frei eintragen">🌴</button>
         <button className="icon-btn" onClick={() => setTrashOpen(true)} aria-label="Papierkorb" title="Papierkorb">🗑</button>
         <div className="seg">
           <button className={view === "liste" ? "on" : ""} onClick={() => setV("liste")}>Liste</button>
@@ -84,7 +85,7 @@ export default function Plan() {
           <div className="week-days">
             {week.map((d) => {
               const pd = parseYmd(d);
-              const mark = [holidayName(d) ? "hol" : "", ferienName(d) ? "fer" : "", urlaubName(d) ? "url" : ""].join(" ").trim();
+              const mark = [holidayName(d) ? "hol" : "", ferienName(d) ? "fer" : "", offCls(d)].join(" ").trim();
               return (
                 <button key={d} className={"wd" + (d === day ? " on" : "") + (d === t ? " today" : "") + (mark ? " " + mark : "") + (examDates.has(d) ? " exam" : "")} onClick={() => setDay(d)}>
                   <small>{WD_SHORT[pd.getDay()]}</small><b>{pd.getDate()}</b>
@@ -104,9 +105,9 @@ export default function Plan() {
           <div className="cal-grid">
             {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map((w) => <div key={w} className="cal-wd">{w}</div>)}
             {cells.map((c) => {
-              const hol = holidayName(c.d), fer = ferienName(c.d), url = urlaubName(c.d), ex = examDates.get(c.d);
+              const hol = holidayName(c.d), fer = ferienName(c.d), url = offName(c.d), ex = examDates.get(c.d);
               return (
-                <button key={c.d} className={"cal-cell" + (c.inMonth ? "" : " out") + (c.d === day ? " on" : "") + (c.d === t ? " today" : "") + (hol ? " hol" : "") + (fer ? " fer" : "") + (url ? " url" : "")} onClick={() => pick(c.d)} title={[hol, fer, url].filter(Boolean).join(" · ")}>
+                <button key={c.d} className={"cal-cell" + (c.inMonth ? "" : " out") + (c.d === day ? " on" : "") + (c.d === t ? " today" : "") + (hol ? " hol" : "") + (fer ? " fer" : "") + (url ? " " + offCls(c.d) : "")} onClick={() => pick(c.d)} title={[hol, fer, url].filter(Boolean).join(" · ")}>
                   <span className="cal-n">{parseYmd(c.d).getDate()}</span>
                   {ex && <span className="cal-exam">{ex}</span>}
                   {hol && <span className="cal-hol">{hol}</span>}
@@ -115,7 +116,7 @@ export default function Plan() {
               );
             })}
           </div>
-          <p className="muted small legend"><i className="lg fer" /> Schulferien Niedersachsen <i className="lg url" /> Urlaub <i className="lg hol" /> Feiertag <i className="lg ex" /> Klausur <i className="lg" style={{ background: "#E8ECF3", borderRadius: "50%" }} /> Google</p>
+          <p className="muted small legend"><i className="lg fer" /> Schulferien Niedersachsen <i className="lg url" /> Urlaub <i className="lg frei" /> Frei <i className="lg hol" /> Feiertag <i className="lg ex" /> Klausur <i className="lg" style={{ background: "#E8ECF3", borderRadius: "50%" }} /> Google</p>
         </section>
       )}
 
@@ -124,7 +125,7 @@ export default function Plan() {
           <div>
             <h2>{longDate(day)}</h2>
             {special && <span className={"tag" + (holidayName(day) ? " red" : "")}>{special}</span>}
-            {urlaubDay && <span className="tag url">{urlaubDay}</span>}
+            {urlaubDay && <span className={"tag " + offCls(day)}>{urlaubDay}</span>}
             {examDates.has(day) && <span className="tag red">Klausur: {examDates.get(day)}</span>}
           </div>
           <button className="btn primary small" onClick={() => setAdd(true)}>+ Eintrag</button>
@@ -142,7 +143,7 @@ export default function Plan() {
       </section>
 
       {open && <Sheet title="Eintrag" onClose={() => setOpen(null)}><BlockDetail occ={occurrencesOn(blocks, open.date).find((o) => o.block.id === open.block.id) ?? open} onClose={() => setOpen(null)} /></Sheet>}
-      {vacOpen && <Sheet title="Urlaub" onClose={() => setVacOpen(false)}><VacationSheet /></Sheet>}
+      {vacOpen && <Sheet title="Urlaub & Frei" onClose={() => setVacOpen(false)}><VacationSheet /></Sheet>}
       {trashOpen && <TrashSheet onClose={() => setTrashOpen(false)} />}
       {add && <Sheet title="Neuer Eintrag" onClose={() => setAdd(false)}><BlockForm date={day} onDone={() => setAdd(false)} /></Sheet>}
     </div>

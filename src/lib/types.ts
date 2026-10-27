@@ -1,6 +1,6 @@
 export type Kind =
   | "lernen" | "wiederholung" | "essen" | "freizeit" | "schlafen" | "arbeit"
-  | "unterwegs" | "termin" | "gespraech" | "nachhilfe" | "sonstiges";
+  | "unterwegs" | "termin" | "gespraech" | "nachhilfe" | "sonstiges" | "urlaub" | "frei";
 
 export interface Topic { id: string; name: string; short?: string }
 
@@ -61,7 +61,7 @@ export interface SubjectRow {
   id: string; user_id?: string; school_year: string; key: string; name: string; hours: number; written: number;
   area: "ueber" | "bezogen"; merge_into: string | null; sort: number;
 }
-export interface Vacation { id: string; start: string; end: string; name: string }
+export interface Vacation { id: string; start: string; end: string; name: string; type?: "urlaub" | "frei" }
 export interface Settings { google_ical_url: string | null; google_enabled: boolean; remind_defaults?: Record<string, number>; timezone?: string; vacations?: Vacation[]; vacation_choices?: Record<string, "keep" | "skip"> }
 
 export interface Goal { id: string; user_id?: string; title: string; date: string | null; created_at?: string }
@@ -73,14 +73,18 @@ export const KIND_LABEL: Record<Kind, string> = {
   lernen: "Lernen", wiederholung: "Wiederholung", essen: "Essen", freizeit: "Freizeit",
   schlafen: "Schlafen", arbeit: "Arbeit", unterwegs: "Unterwegs", termin: "Termin",
   gespraech: "Gespräch", nachhilfe: "Nachhilfe", sonstiges: "Sonstiges",
+  urlaub: "Urlaub", frei: "Frei (Überstunden)",
 };
 
 export const KIND_COLOR: Record<Kind, string> = {
   lernen: "var(--blue)", wiederholung: "var(--yellow)", essen: "var(--green)", freizeit: "var(--orange)",
   schlafen: "#6B7686", arbeit: "#B69CFF", unterwegs: "#5CC8C8", termin: "#FF9ED2",
   gespraech: "#FF9ED2", nachhilfe: "var(--blue)", sonstiges: "var(--muted)",
+  urlaub: "var(--urlaub)", frei: "var(--frei)",
 };
 
-export const KINDS: Kind[] = ["lernen", "wiederholung", "arbeit", "unterwegs", "termin", "gespraech", "nachhilfe", "essen", "freizeit", "schlafen", "sonstiges"];
+export const KINDS: Kind[] = ["lernen", "wiederholung", "arbeit", "unterwegs", "termin", "gespraech", "nachhilfe", "essen", "freizeit", "schlafen", "urlaub", "frei", "sonstiges"];
 
 export const isStudy = (k: Kind) => k === "lernen" || k === "wiederholung";
+/** Urlaub / Frei: an diesen Tagen fällt Alltag weg. */
+export const isOff = (k: Kind) => k === "urlaub" || k === "frei";

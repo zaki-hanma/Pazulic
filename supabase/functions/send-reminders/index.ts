@@ -10,7 +10,7 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const APP_URL = "https://zaki-hanma.github.io/Pazulic/";
-const DEFAULTS: Record<string, number> = { lernen: 5, wiederholung: 5, unterwegs: -1, arbeit: -1, _other: 30, _google: 30 };
+const DEFAULTS: Record<string, number> = { lernen: 5, wiederholung: 5, unterwegs: -1, arbeit: -1, urlaub: -1, frei: -1, _other: 30, _google: 30 };
 const STUDY = new Set(["lernen", "wiederholung"]);
 
 // ---------- Datum-Hilfen (lokale Zeit des Nutzers) ----------
@@ -170,7 +170,7 @@ async function processUser(admin: Any, userId: string, subs: Any[], now: Date) {
       const m = (marks ?? []).find((x: Any) => x.uid === ev.uid && x.date === ev.date);
       if (m?.hidden || m?.done) continue;
       const rule = sorted.find((r: Any) => ev.title.toLowerCase().includes(r.match));
-      const kind = m?.kind ?? rule?.kind ?? "termin";
+      const kind = m?.kind ?? rule?.kind ?? (/urlaub|vacation|betriebsferien/i.test(ev.title) ? "urlaub" : /überstunden|ueberstunden|freizeitausgleich|gleittag|\bfrei(er tag)?\b/i.test(ev.title) ? "frei" : "termin");
       const ck = (m?.custom_kind_id ?? rule?.custom_kind_id) ? kindById.get(m?.custom_kind_id ?? rule?.custom_kind_id) : null;
       const before = rule?.remind_minutes ?? ck?.remind_minutes ?? (ck ? defs._other : defs[kind]) ?? defs._google;
       if (before == null || before < 0) continue;
