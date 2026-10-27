@@ -18,7 +18,7 @@ export function useVacations() {
     const day = new Map<string, string>(); // Datum → Name
     // 1) Google: zusammenhängende Tage zu einem Zeitraum zusammenfassen
     const gDays = [...google.entries()]
-      .map(([d, evs]) => [d, evs.find((g) => g.allDay && URL_RE.test(g.title))?.title] as const)
+      .map(([d, evs]) => [d, evs.find((g) => URL_RE.test(g.title))?.title] as const)
       .filter((x): x is readonly [string, string] => !!x[1])
       .sort((a, b) => a[0].localeCompare(b[0]));
     const periods: Period[] = [];

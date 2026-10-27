@@ -37,10 +37,15 @@ async function parse(text: string): Promise<GEvent[]> {
       return;
     }
     const sd = s.toJSDate(), ed = e.toJSDate();
-    const d = ymd(sd);
-    if (d < from || d > to) return;
-    const sameDay = ymd(ed) === d;
-    out.push({ uid, date: d, start: hm(sd), end: sameDay ? hm(ed) : "23:59", allDay: false, title });
+    const first = ymd(sd);
+    // Endet um 00:00 → zählt nur bis zum Vortag
+    const last = hm(ed) === "00:00" && ymd(ed) > first ? addDays(ymd(ed), -1) : ymd(ed);
+    // Mehrtägige Termine (z. B. Urlaub mit Uhrzeit) an jedem Tag zeigen
+    let d = first, n = 0;
+    do {
+      if (d >= from && d <= to) out.push({ uid, date: d, start: d === first ? hm(sd) : "00:00", end: d === last ? (hm(ed) === "00:00" ? "23:59" : hm(ed)) : "23:59", allDay: false, title });
+      d = addDays(d, 1);
+    } while (d <= last && n++ < 400);
   };
 
   for (const ev of masters.values()) {
