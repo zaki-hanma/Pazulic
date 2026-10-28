@@ -13,7 +13,7 @@ type Freq = "none" | RepeatRule["freq"];
 interface Props { block?: Block; date: string; onDone: () => void }
 
 export default function BlockForm({ block, date, onDone }: Props) {
-  const { exams, saveBlock, deleteBlock, customKinds, skipOccurrence, settings } = useStore();
+  const { exams, saveBlock, deleteBlock, customKinds, skipOccurrence, settings, detachOccurrence } = useStore();
   const [remind, setRemind] = useState<string>(block?.remind_minutes == null ? "std" : String(block.remind_minutes));
   const [kind, setKind] = useState<Kind>(block?.kind ?? "lernen");
   const [customId, setCustomId] = useState<string | null>(block?.custom_kind_id ?? null);
@@ -21,7 +21,10 @@ export default function BlockForm({ block, date, onDone }: Props) {
   const [title, setTitle] = useState(block?.title ?? "");
   const [examId, setExamId] = useState<string>(block?.exam_id ?? exams.find((e) => e.date >= date)?.id ?? "");
   const [topics, setTopics] = useState<string[]>(block?.topic_ids ?? []);
-  const [d, setD] = useState(block?.date ?? date);
+  const series = !!block && isRepeating(block);
+  // Bei Serien: Standard = nur diesen Tag ändern
+  const [scope, setScope] = useState<"one" | "all">(series ? "one" : "all");
+  const [d, setD] = useState(series ? date : block?.date ?? date);
   const [start, setStart] = useState(hhmm(block?.start_time ?? "17:00"));
   const [end, setEnd] = useState(hhmm(block?.end_time ?? "17:30"));
   // Wiederholung (alte wöchentliche Einträge werden in die neue Regel übernommen)
@@ -59,6 +62,16 @@ export default function BlockForm({ block, date, onDone }: Props) {
     if (!t && study && exam) t = topics.map((id) => exam.topics.find((x) => x.id === id)?.short || exam.topics.find((x) => x.id === id)?.name).filter(Boolean).join(" + ");
     if (!t) t = customId ? customKinds.find((x) => x.id === customId)?.name ?? KIND_LABEL[kind] : KIND_LABEL[kind];
     setBusy(true);
+    const common = {
+      kind, title: t, start_time: start, end_time: end,
+      exam_id: study ? examId || null : null, topic_ids: study ? topics : [], planned_minutes: planned, custom_kind_id: customId, remind_minutes: remind === "std" ? null : Number(remind),
+    };
+    if (series && scope === "one" && block) {
+      const ok1 = await detachOccurrence(block, date, { ...common, date: d });
+      setBusy(false);
+      if (ok1) onDone();
+      return;
+    }
     const ok = await saveBlock({
       id: block?.id, kind, title: t, date: d, start_time: start, end_time: end,
       exam_id: study ? examId || null : null, topic_ids: study ? topics : [], planned_minutes: planned, repeat_weekdays: null, repeat_rule: rule, custom_kind_id: customId, remind_minutes: remind === "std" ? null : Number(remind),
@@ -76,6 +89,16 @@ export default function BlockForm({ block, date, onDone }: Props) {
 
   return (
     <form className="form" onSubmit={submit}>
+      {series && (
+        <>
+          <label className="lbl">Was möchtest du ändern?</label>
+          <div className="seg">
+            <button type="button" className={scope === "one" ? "on" : ""} onClick={() => { setScope("one"); setD(date); }}>Nur diesen Tag ({date.slice(8, 10)}.{date.slice(5, 7)}.)</button>
+            <button type="button" className={scope === "all" ? "on" : ""} onClick={() => { setScope("all"); setD(block!.date); }}>Alle Termine</button>
+          </div>
+          <p className="muted small">{scope === "one" ? "Nur dieser eine Tag wird geändert. Die anderen Tage bleiben wie sie sind." : "Achtung: Die Änderung gilt für ALLE Tage dieser Serie."}</p>
+        </>
+      )}
       <label className="lbl">Art</label>
       <div className="chips">
         {KINDS.map((k) => (
@@ -118,7 +141,7 @@ export default function BlockForm({ block, date, onDone }: Props) {
       <input id="f-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={study ? "z. B. Karteikarten" : customKinds.find((x) => x.id === customId)?.name ?? KIND_LABEL[kind]} maxLength={80} />
 
       <div className="row3">
-        <div><label className="lbl" htmlFor="f-date">{freq !== "none" ? "Ab Datum" : "Datum"}</label><input id="f-date" type="date" value={d} onChange={(e) => setD(e.target.value)} required /></div>
+        <div><label className="lbl" htmlFor="f-date">{freq !== "none" && scope === "all" ? "Ab Datum" : "Datum"}</label><input id="f-date" type="date" value={d} onChange={(e) => setD(e.target.value)} required /></div>
         <div><label className="lbl" htmlFor="f-start">Von</label><input id="f-start" type="time" value={start} onChange={(e) => setStart(e.target.value)} required /></div>
         <div><label className="lbl" htmlFor="f-end">Bis</label><input id="f-end" type="time" value={end} onChange={(e) => setEnd(e.target.value)} required /></div>
       </div>
@@ -127,6 +150,7 @@ export default function BlockForm({ block, date, onDone }: Props) {
         {study && dur > 0 && <> · Ziel-Lernzeit: <b className="mono">{fmtMin(planned)}</b> (Pomodoro 25 + 5)</>}
       </p>
 
+      {scope === "all" && <>
       <label className="lbl" htmlFor="f-rep">Wiederholen</label>
       <select id="f-rep" value={freq} onChange={(e) => setFreq(e.target.value as Freq)}>
         <option value="none">Nicht wiederholen</option>
@@ -167,6 +191,7 @@ export default function BlockForm({ block, date, onDone }: Props) {
           <p className="muted small">Tipp: Der Wochentag kommt vom Datum oben (z. B. für „letzter Mittwoch im Monat“ ein Mittwoch-Datum wählen).</p>
         </div>
       )}
+      </>}
 
       {(() => {
         const defs = { ...DEFAULT_REMIND, ...(settings.remind_defaults ?? {}) };

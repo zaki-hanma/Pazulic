@@ -40,6 +40,8 @@ interface Store {
   addBlocks: (rows: (Partial<Block> & Pick<Block, "date" | "start_time" | "end_time" | "kind">)[]) => Promise<boolean>;
   skipOccurrence: (b: Block, date: string) => Promise<boolean>;
   skipMany: (items: { b: Block; dates: string[] }[]) => Promise<boolean>;
+  /** Nur einen Tag einer Serie ändern: Tag aus der Serie nehmen und als eigenen Eintrag speichern. */
+  detachOccurrence: (b: Block, date: string, x: Partial<Block> & Pick<Block, "date" | "start_time" | "end_time" | "kind">) => Promise<boolean>;
   saveCustomKind: (k: { id?: string; name: string; color: string; remind_minutes?: number | null }) => Promise<CustomKind | null>;
   deleteCustomKind: (id: string) => Promise<boolean>;
   saveGoogleMark: (m: Partial<GoogleMark> & { uid: string; date: string }) => Promise<boolean>;
@@ -240,6 +242,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return ok;
   };
 
+  const detachOccurrence: Store["detachOccurrence"] = async (b, date, x) => {
+    const note = b.day_notes?.[date];
+    const row = {
+      exam_id: x.exam_id ?? null, date: x.date, start_time: x.start_time, end_time: x.end_time, kind: x.kind,
+      title: x.title ?? "", topic_ids: x.topic_ids ?? [], planned_minutes: x.planned_minutes ?? 0,
+      repeat_weekdays: null, repeat_rule: null, custom_kind_id: x.custom_kind_id ?? null, remind_minutes: x.remind_minutes ?? null,
+      done: x.date === date && b.completed_dates.includes(date), completed_dates: [], ...(note && x.date === date ? { day_notes: { [date]: note } } : {}),
+    };
+    const res = await supabase.from("plan_blocks").insert(row).select().single();
+    if (res.error) { setError(FAIL); return false; }
+    const nb = res.data as Block;
+    const skip_dates = [...new Set([...(b.skip_dates ?? []), date])];
+    const day_notes = { ...(b.day_notes ?? {}) }; delete day_notes[date];
+    const up = await supabase.from("plan_blocks").update({ skip_dates, day_notes }).eq("id", b.id);
+    if (up.error) { await supabase.from("plan_blocks").delete().eq("id", nb.id); setError(FAIL); return false; }
+    // gemessene Zeiten dieses Tages mitnehmen
+    await supabase.from("study_sessions").update({ block_id: nb.id, date: x.date }).eq("block_id", b.id).eq("date", date);
+    await supabase.from("activity_logs").update({ block_id: nb.id, date: x.date }).eq("block_id", b.id).eq("date", date);
+    setBlocks((p) => [...p.map((y) => (y.id === b.id ? { ...y, skip_dates, day_notes } : y)), nb]);
+    loadAll();
+    return true;
+  };
+
   const saveCustomKind: Store["saveCustomKind"] = async (k) => {
     const row = { name: k.name.trim().slice(0, 40), color: k.color, ...(k.remind_minutes !== undefined ? { remind_minutes: k.remind_minutes } : {}) };
     const res = k.id ? await supabase.from("custom_kinds").update(row).eq("id", k.id).select().single()
@@ -437,7 +462,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Store>(() => ({
     auth, authReady, ready, exams, blocks, trash, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, googleRules, activityLogs, settings, timer, error, clearError: () => setError(null),
-    saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, restoreBlock, purgeBlock, unskipOccurrence, saveDayNote, addBlocks, skipOccurrence, skipMany, saveCustomKind, deleteCustomKind, saveGoogleMark, saveGoogleRule, deleteGoogleRule, toggleDone, addSession, deleteSession, addActivityLog, deleteActivityLog, setTimer, saveGrade, deleteGrade, saveReportGrade, saveSettings, saveSubjects, deleteSubject, reloadAll: loadAll, signOut,
+    saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, restoreBlock, purgeBlock, unskipOccurrence, saveDayNote, addBlocks, skipOccurrence, skipMany, detachOccurrence, saveCustomKind, deleteCustomKind, saveGoogleMark, saveGoogleRule, deleteGoogleRule, toggleDone, addSession, deleteSession, addActivityLog, deleteActivityLog, setTimer, saveGrade, deleteGrade, saveReportGrade, saveSettings, saveSubjects, deleteSubject, reloadAll: loadAll, signOut,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [auth, authReady, ready, exams, blocks, trash, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, googleRules, activityLogs, settings, timer, error]);
 
