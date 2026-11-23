@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 300 300" role="img" aria-label="App-Symbol">
+          <defs><clipPath id="f2"><rect width="300" height="300" rx="66"></rect></clipPath><linearGradient id="sk2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#07080F"></stop><stop offset="1" stop-color="#5A3438"></stop></linearGradient><radialGradient id="m2" cx="30%" cy="35%" r="75%"><stop offset="0" stop-color="#FF9A72"></stop><stop offset=".5" stop-color="#F0402E"></stop><stop offset="1" stop-color="#7A0E18"></stop></radialGradient><mask id="cr2"><rect width="300" height="300" fill="#fff"></rect><circle cx="186" cy="88" r="70" fill="#000"></circle></mask></defs>
+          <g clip-path="url(#f2)"><rect width="300" height="300" fill="url(#sk2)"></rect><circle cx="150" cy="112" r="80" fill="url(#m2)" mask="url(#cr2)"></circle>
+          <path d="M24 104 Q150 120 276 104 L270 118 Q150 128 30 118 Z" fill="#120708"></path><rect x="64" y="160" width="172" height="13" fill="#120708"></rect><rect x="84" y="118" width="23" height="190" fill="#120708"></rect><rect x="193" y="118" width="23" height="190" fill="#120708"></rect>
+          <rect x="122" y="124" width="56" height="24" rx="2" fill="#120708" stroke="#FFD24A" stroke-width="2.5"></rect><text x="150" y="143" text-anchor="middle" font-family="Shippori Mincho, serif" font-size="20" font-weight="800" fill="#FFD24A">P</text>
+          <ellipse cx="150" cy="300" rx="190" ry="44" fill="#D9D3DA" opacity=".75"></ellipse></g>
+        </svg>
