@@ -74,8 +74,8 @@ export interface Settings { google_ical_url: string | null; google_enabled: bool
   templates?: DayTemplate[];
   driving?: Driving }
 export type DriveType = "normal" | "ueberland" | "autobahn" | "nacht" | "pruefung" | "keine";
-/** Führerschein: Art je Fahrstunde (Schlüssel g|uid|datum oder b|id|datum) und Preise */
-export interface Driving { types?: Record<string, DriveType>; price_normal?: number | null; price_special?: number | null }
+/** Führerschein: Art je Fahrstunde (Schlüssel g|uid|datum oder b|id|datum) */
+export interface Driving { types?: Record<string, DriveType> }
 export interface TemplateItem { kind: Kind; custom_kind_id: string | null; title: string; start: string; end: string; remind_minutes?: number | null }
 export interface DayTemplate { id: string; name: string; items: TemplateItem[] }
 
