@@ -10,7 +10,7 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const APP_URL = "https://zaki-hanma.github.io/Pazulic/";
-const DEFAULTS: Record<string, number> = { lernen: 5, wiederholung: 5, unterwegs: -1, arbeit: -1, urlaub: -1, frei: -1, _other: 30, _google: 30 };
+const DEFAULTS: Record<string, number> = { lernen: 5, wiederholung: 5, unterwegs: -1, arbeit: -1, urlaub: -1, frei: -1, schlafen: -1, _other: 30, _google: 30 };
 const STUDY = new Set(["lernen", "wiederholung"]);
 
 // ---------- Datum-Hilfen (lokale Zeit des Nutzers) ----------
@@ -127,6 +127,7 @@ async function googleEvents(admin: Any, userId: string, url: string, tz: string,
   return events;
 }
 
+const fmtDur = (m: number) => { m = Math.round(m); const h = Math.floor(m / 60), r = m % 60; return h ? (r ? `${h} Std. ${r} Min.` : `${h} Std.`) : `${r} Min.`; };
 const fmtT = (m: number) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 const inText = (m: number) => (m <= 0 ? "Jetzt" : m < 60 ? `In ${m} Min.` : m % 60 ? `In ${Math.floor(m / 60)} Std. ${m % 60} Min.` : `In ${m / 60} Std.`);
 
@@ -201,6 +202,70 @@ async function processUser(admin: Any, userId: string, subs: Any[], now: Date) {
       due.push({
         key: `g|${ev.uid}|${ev.date}|${ev.start}`,
         payload: { title: `⏰ ${ev.title}`, body: `${inText(start - nowMin)} · ${fmtT(ev.start)}–${fmtT(ev.end)} · Google`, tag: `g-${ev.uid}-${ev.date}`, url: APP_URL },
+      });
+    }
+  }
+
+  // ☀️ Tages-Übersicht am Morgen
+  const mt = st?.morning_time ? toMin(st.morning_time) : null;
+  if (mt != null && nowMin >= mt && nowMin < mt + 3) {
+    const items: [number, string][] = [];
+    for (const b of blocks ?? []) {
+      const o = occursOn(b, today);
+      if (!o || o.done || b.kind === "schlafen") continue;
+      items.push([toMin(b.start_time), `${fmtT(toMin(b.start_time))} ${b.title}`]);
+    }
+    if (st?.google_enabled && st?.google_ical_url) {
+      const hiddenAll = new Set((marks ?? []).filter((m: Any) => m.hidden && m.date === "2000-01-01").map((m: Any) => m.uid));
+      for (const ev of await googleEvents(admin, userId, st.google_ical_url, tz, today)) {
+        if (ev.date !== today || hiddenAll.has(ev.uid) || (marks ?? []).some((m: Any) => m.uid === ev.uid && m.date === today && m.hidden)) continue;
+        items.push([ev.start, `${fmtT(ev.start)} ${ev.title}`]);
+      }
+    }
+    items.sort((a, b) => a[0] - b[0]);
+    const list = items.map((x) => x[1]);
+    due.push({
+      key: `m|${today}`,
+      payload: {
+        title: "☀️ Guten Morgen! Dein Tag:",
+        body: list.length ? list.slice(0, 8).join(" · ") + (list.length > 8 ? ` · +${list.length - 8} weitere` : "") : "Heute ist nichts geplant. Genieß den Tag! 🎉",
+        tag: `m-${today}`, url: APP_URL,
+      },
+    });
+  }
+
+  // 📊 Wochenrückblick am Sonntag um 19 Uhr
+  if (st?.weekly_review && isoWd(today) === 7 && nowMin >= 19 * 60 && nowMin < 19 * 60 + 3) {
+    const mon = addDays(today, -6);
+    const { data: ses } = await admin.from("study_sessions").select("minutes, subject, date").eq("user_id", userId).gte("date", mon).lte("date", today);
+    const learned = (ses ?? []).reduce((a: number, x: Any) => a + (x.minutes ?? 0), 0);
+    let planned = 0;
+    for (let d = mon; d <= today; d = addDays(d, 1)) for (const b of blocks ?? []) if (STUDY.has(b.kind) && occursOn(b, d)) planned += b.planned_minutes ?? 0;
+    const bySub = new Map<string, number>();
+    for (const x of ses ?? []) bySub.set(x.subject || "Ohne Fach", (bySub.get(x.subject || "Ohne Fach") ?? 0) + (x.minutes ?? 0));
+    const top = [...bySub.entries()].sort((a, b) => b[1] - a[1])[0];
+    const pct = planned ? Math.round((learned / planned) * 100) : null;
+    const mood = pct == null ? "" : pct >= 90 && pct <= 110 ? " 🟢 Genau im Plan!" : pct < 90 ? " 🔴 Nächste Woche etwas mehr?" : " 🟠 Mehr gebraucht als geplant.";
+    due.push({
+      key: `w|${today}`,
+      payload: {
+        title: "📊 Dein Wochenrückblick",
+        body: learned || planned
+          ? `Gelernt: ${fmtDur(learned)}${planned ? ` · Ziel: ${fmtDur(planned)} (${pct} %)` : ""}${top ? ` · Am meisten: ${top[0]}` : ""}.${mood}`
+          : "Diese Woche war kein Lernen geplant. Schöne Woche gehabt? 😊",
+        tag: `w-${today}`, url: APP_URL,
+      },
+    });
+  }
+
+  // ⏱️ Timer läuft sehr lange (vergessen?)
+  const { data: tm } = await admin.from("timer_state").select("running, started_at, acc_ms, meta").eq("user_id", userId).maybeSingle();
+  if (tm?.running && tm.started_at) {
+    const ms = Number(tm.acc_ms ?? 0) + (now.getTime() - new Date(tm.started_at).getTime());
+    if (ms > 3 * 3600_000) {
+      due.push({
+        key: `t|${tm.started_at}`,
+        payload: { title: "⏱️ Läuft dein Timer noch?", body: `„${tm.meta?.title || tm.meta?.topic || "Timer"}“ läuft seit ${fmtDur(ms / 60000)}. Wenn du fertig bist, tippe auf „Stopp & speichern“.`, tag: "timer-long", url: APP_URL },
       });
     }
   }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useStore } from "../lib/store";
 import type { Block, Kind, RepeatRule } from "../lib/types";
 import { KINDS, KIND_COLOR, KIND_LABEL, isStudy } from "../lib/types";
@@ -14,13 +14,20 @@ type Freq = "none" | RepeatRule["freq"];
 interface Props { block?: Block; date: string; onDone: () => void }
 
 export default function BlockForm({ block, date, onDone }: Props) {
-  const { exams, saveBlock, deleteBlock, customKinds, skipOccurrence, settings, detachOccurrence } = useStore();
+  const { exams, saveBlock, deleteBlock, customKinds, skipOccurrence, settings, detachOccurrence, blocks } = useStore();
   const [remind, setRemind] = useState<string>(block?.remind_minutes == null ? "std" : String(block.remind_minutes));
   const [kind, setKind] = useState<Kind>(block?.kind ?? "lernen");
   const [customId, setCustomId] = useState<string | null>(block?.custom_kind_id ?? null);
   const [newKind, setNewKind] = useState(false);
   const [pickOpen, setPickOpen] = useState(false);
   const [kindQ, setKindQ] = useState("");
+  // Die 4 meistbenutzten Arten (für schnelles Wählen ohne Liste)
+  const recent = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const b of blocks) { const k = b.kind + "|" + (b.custom_kind_id ?? ""); n.set(k, (n.get(k) ?? 0) + 1); }
+    return [...n.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => { const [kk, c] = k.split("|"); return { kind: kk as Kind, custom: c || null }; })
+      .filter((x) => !x.custom || customKinds.some((c) => c.id === x.custom)).slice(0, 5);
+  }, [blocks, customKinds]);
   const [title, setTitle] = useState(block?.title ?? "");
   const [examId, setExamId] = useState<string>(block?.exam_id ?? exams.find((e) => e.date >= date)?.id ?? "");
   const [topics, setTopics] = useState<string[]>(block?.topic_ids ?? []);
@@ -108,7 +115,10 @@ export default function BlockForm({ block, date, onDone }: Props) {
         {(() => { const k = kindInfo(kind, customId, customKinds); return (
           <button type="button" className="chip on big" style={{ ["--c" as string]: k.color }} onClick={() => setPickOpen((o) => !o)}><i className="dot" />{k.label}</button>
         ); })()}
-        <button type="button" className={"chip add" + (pickOpen ? " on" : "")} style={{ ["--c" as string]: "var(--yellow)" }} onClick={() => { setPickOpen((o) => !o); setKindQ(""); }} aria-expanded={pickOpen}>{pickOpen ? "✕ Schließen" : "＋ Art wählen"}</button>
+        {!pickOpen && recent.filter((r) => !(r.kind === kind && (r.custom ?? null) === (customId ?? null))).slice(0, 4).map((r) => { const k = kindInfo(r.kind, r.custom, customKinds); return (
+          <button type="button" key={r.kind + (r.custom ?? "")} className="chip" style={{ ["--c" as string]: k.color }} onClick={() => pickKind(r.kind, r.custom)}><i className="dot" />{k.label}</button>
+        ); })}
+        <button type="button" className={"chip add" + (pickOpen ? " on" : "")} style={{ ["--c" as string]: "var(--yellow)" }} onClick={() => { setPickOpen((o) => !o); setKindQ(""); }} aria-expanded={pickOpen}>{pickOpen ? "✕ Schließen" : "＋ Mehr"}</button>
       </div>
       {pickOpen && (
         <div className="kind-panel">

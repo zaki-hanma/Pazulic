@@ -33,7 +33,15 @@ export default function TimerCard() {
   };
 
   const stop = async () => {
-    const min = Math.round(ms / 60000);
+    let min = Math.round(ms / 60000);
+    if (min > 180) {
+      // Timer lief sehr lange – vielleicht vergessen? Echte Zeit nachfragen.
+      const a = window.prompt(`Der Timer lief ${fmtClock(ms)} Stunden. Hast du ihn vielleicht vergessen?\n\nWie viele MINUTEN hast du wirklich gemacht?`, String(min));
+      if (a === null) return;
+      const n = parseInt(a, 10);
+      if (!Number.isFinite(n) || n < 0) return;
+      min = Math.min(n, 1440);
+    }
     const date = meta.date ?? today();
     if (min >= 1 && mode === "activity" && timer.block_id) {
       if (!(await addActivityLog({ block_id: timer.block_id, date, minutes: Math.min(1440, min), source: "timer" }))) return;
@@ -65,6 +73,7 @@ export default function TimerCard() {
       </div>
       <h3 className="timer-title">{meta.title || meta.topic || (pomo ? "Lernen" : "Aufgabe")}</h3>
       <div className="timer-clock mono">{fmtClock(ms)}</div>
+      {ms > 3 * 3600_000 && <p className="err small center">⏱️ Läuft der Timer noch? Beim Speichern kannst du die echte Zeit eintragen.</p>}
       {pomo ? <>
         <div className="bar"><i style={{ width: `${pct}%`, background: "var(--blue)" }} /></div>
         <p className="muted small">{Math.floor(ms / POMO_MS)} × 25 Min. geschafft · nächste 25 Min. in {fmtClock(POMO_MS - inPomo)}</p>

@@ -35,9 +35,46 @@ export async function downloadBackup(): Promise<{ ok: boolean; count: number }> 
   return { ok: true, count };
 }
 
+type BackupJson = { app?: string; data?: Record<string, Record<string, unknown>[]> };
+
 export async function restoreBackup(file: File): Promise<{ ok: boolean; count: number; msg?: string }> {
-  let json: { app?: string; data?: Record<string, Record<string, unknown>[]> };
+  let json: BackupJson;
   try { json = JSON.parse(await file.text()); } catch { return { ok: false, count: 0, msg: "Die Datei ist keine Pazulic-Sicherung." }; }
+  return restoreJson(json);
+}
+
+// ---------- Automatische Sicherungen (jeden Sonntag, die letzten 4 bleiben) ----------
+export interface ServerBackup { id: string; created_at: string }
+
+export async function listServerBackups(): Promise<ServerBackup[]> {
+  const { data } = await supabase.from("backups").select("id, created_at").order("created_at", { ascending: false });
+  return (data ?? []) as ServerBackup[];
+}
+
+async function serverBackup(id: string): Promise<BackupJson | null> {
+  const { data } = await supabase.from("backups").select("data").eq("id", id).maybeSingle();
+  return (data?.data as BackupJson) ?? null;
+}
+
+export async function downloadServerBackup(b: ServerBackup) {
+  const json = await serverBackup(b.id);
+  if (!json) return false;
+  const blob = new Blob([JSON.stringify(json, null, 1)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `pazulic-auto-sicherung-${b.created_at.slice(0, 10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  return true;
+}
+
+export async function restoreServerBackup(id: string) {
+  const json = await serverBackup(id);
+  if (!json) return { ok: false, count: 0, msg: "Sicherung nicht gefunden." };
+  return restoreJson(json);
+}
+
+async function restoreJson(json: BackupJson): Promise<{ ok: boolean; count: number; msg?: string }> {
   if (json.app !== "Pazulic" || !json.data) return { ok: false, count: 0, msg: "Die Datei ist keine Pazulic-Sicherung." };
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) return { ok: false, count: 0, msg: "Bitte zuerst anmelden." };

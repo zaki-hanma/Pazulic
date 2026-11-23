@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../lib/store";
-import { addDays, ferienName, holidayName, isoWeekday, longDate, MONTHS, parseYmd, today, WD_SHORT, ymd } from "../lib/dates";
+import { addDays, FERIEN_END, ferienName, holidayName, isoWeekday, longDate, MONTHS, parseYmd, today, WD_SHORT, ymd } from "../lib/dates";
 import { isNow, occurrencesOn } from "../lib/plan";
 import { topicNames } from "../lib/labels";
 import { kindInfo } from "../lib/labels";
@@ -16,6 +16,7 @@ import Sheet from "../components/Sheet";
 import BlockDetail from "../components/BlockDetail";
 import BlockForm from "../components/BlockForm";
 import VacationPrompt from "../components/VacationPrompt";
+import DayTools from "../components/DayTools";
 import VacationSheet from "../components/VacationSheet";
 import { useVacations } from "../lib/vacation";
 
@@ -30,6 +31,7 @@ export default function Plan() {
   const [add, setAdd] = useState(false);
   const [trashOpen, setTrashOpen] = useState(false);
   const [vacOpen, setVacOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const vac = useVacations();
 
   const setV = (v: View) => { setView(v); try { localStorage.setItem("plan-view", v); } catch { /* egal */ } };
@@ -76,6 +78,7 @@ export default function Plan() {
 
       {timer && <TimerCard />}
       <VacationPrompt />
+      {t >= addDays(FERIEN_END, -75) && <p className="card muted small">🏫 Die Schulferien sind nur bis <b>{FERIEN_END.split("-").reverse().join(".")}</b> eingetragen. Bitte die Ferien für das nächste Schuljahr ergänzen lassen.</p>}
 
       <PlanSearch onPick={(d) => { pick(d); setTimeout(() => document.getElementById("day-list")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); }} />
 
@@ -128,7 +131,10 @@ export default function Plan() {
             {urlaubDay && <span className={"tag " + offCls(day)}>{urlaubDay}</span>}
             {examDates.has(day) && <span className="tag red">Klausur: {examDates.get(day)}</span>}
           </div>
-          <button className="btn primary small" onClick={() => setAdd(true)}>+ Eintrag</button>
+          <div className="head-actions">
+            <button className="btn small" onClick={() => setToolsOpen(true)} title="Vorlage einfügen / Tag kopieren">📋 Vorlage</button>
+            <button className="btn primary small" onClick={() => setAdd(true)}>+ Eintrag</button>
+          </div>
         </div>
         {day < t && <p className="muted small">Vergangener Tag – du kannst Einträge nachtragen oder ändern.</p>}
         {occs.length + gev.length === 0 ? <p className="muted">Nichts geplant.</p> : (
@@ -143,6 +149,7 @@ export default function Plan() {
       </section>
 
       {open && <Sheet title="Eintrag" onClose={() => setOpen(null)}><BlockDetail occ={occurrencesOn(blocks, open.date).find((o) => o.block.id === open.block.id) ?? open} onClose={() => setOpen(null)} /></Sheet>}
+      {toolsOpen && <Sheet title="Vorlagen & Kopieren" onClose={() => setToolsOpen(false)}><DayTools day={day} onDone={() => setToolsOpen(false)} /></Sheet>}
       {vacOpen && <Sheet title="Urlaub & Frei" onClose={() => setVacOpen(false)}><VacationSheet /></Sheet>}
       {trashOpen && <TrashSheet onClose={() => setTrashOpen(false)} />}
       {add && <Sheet title="Neuer Eintrag" onClose={() => setAdd(false)}><BlockForm date={day} onDone={() => setAdd(false)} /></Sheet>}

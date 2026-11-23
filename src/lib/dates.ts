@@ -130,6 +130,9 @@ const FERIEN: { name: string; from: string; to: string }[] = [
   { name: "Sommerferien", from: "2028-07-20", to: "2028-08-30" },
 ];
 
+/** Bis wann sind Schulferien eingetragen? */
+export const FERIEN_END = FERIEN[FERIEN.length - 1].to;
+
 export function ferienName(date: string): string | null {
   const f = FERIEN.find((x) => date >= x.from && date <= x.to);
   return f ? f.name : null;

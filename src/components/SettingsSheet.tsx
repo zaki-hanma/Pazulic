@@ -6,6 +6,7 @@ import { downloadBackup, restoreBackup } from "../lib/backup";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import RemindSettings from "./RemindSettings";
+import AutoBackups from "./AutoBackups";
 import NewPassword from "./NewPassword";
 
 const OK = /^https:\/\/calendar\.google\.com\/calendar\/ical\/[^\s]+\.ics(\?[^\s]*)?$/;
@@ -111,6 +112,7 @@ export default function SettingsSheet({ onClose }: { onClose: () => void }) {
           </label>
         </div>
         {bmsg && <p className={bmsg.ok ? "ok" : "err"}>{bmsg.t}</p>}
+        <AutoBackups />
 
         <h3 style={{ marginTop: 18 }}>Konto</h3>
         <p className="muted small">Angemeldet als {auth?.user.email}</p>

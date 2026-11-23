@@ -17,6 +17,8 @@ export interface Block {
   custom_kind_id: string | null; repeat_rule: RepeatRule | null; skip_dates: string[];
   /** Schul-Termin: fällt in Schulferien und an Feiertagen automatisch aus. */
   school?: boolean;
+  /** Wurde aus einer Serie herausgelöst („Nur diesen Tag ändern“): "serienId|datum" */
+  detached_from?: string | null;
   remind_minutes?: number | null;
   deleted_at?: string | null;
   day_notes?: Record<string, string>;
@@ -64,7 +66,14 @@ export interface SubjectRow {
   area: "ueber" | "bezogen"; merge_into: string | null; sort: number;
 }
 export interface Vacation { id: string; start: string; end: string; name: string; type?: "urlaub" | "frei" }
-export interface Settings { google_ical_url: string | null; google_enabled: boolean; remind_defaults?: Record<string, number>; timezone?: string; vacations?: Vacation[]; vacation_choices?: Record<string, "keep" | "skip"> }
+export interface Settings { google_ical_url: string | null; google_enabled: boolean; remind_defaults?: Record<string, number>; timezone?: string; vacations?: Vacation[]; vacation_choices?: Record<string, "keep" | "skip">;
+  /** Uhrzeit der Morgen-Übersicht („06:00“) oder null = aus */
+  morning_time?: string | null;
+  /** Wochenrückblick am Sonntag um 19 Uhr */
+  weekly_review?: boolean;
+  templates?: DayTemplate[] }
+export interface TemplateItem { kind: Kind; custom_kind_id: string | null; title: string; start: string; end: string; remind_minutes?: number | null }
+export interface DayTemplate { id: string; name: string; items: TemplateItem[] }
 
 export interface Goal { id: string; user_id?: string; title: string; date: string | null; created_at?: string }
 

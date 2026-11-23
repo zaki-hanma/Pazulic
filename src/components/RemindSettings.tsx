@@ -48,6 +48,19 @@ export default function RemindSettings() {
       </div>
       {msg && <p className={msg.ok ? "ok" : "err"}>{msg.t}</p>}
 
+      <label className="lbl">☀️ Tages-Übersicht am Morgen</label>
+      <label className="rem-row"><span>Eine Nachricht mit allen Terminen des Tages</span>
+        <select value={settings.morning_time ?? ""} onChange={(e) => saveSettings({ morning_time: e.target.value || null, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Berlin" })}>
+          <option value="">aus</option>
+          {["05:00", "05:30", "06:00", "06:30", "07:00", "07:30", "08:00", "09:00", "10:00"].map((t) => <option key={t} value={t}>{t} Uhr</option>)}
+        </select>
+      </label>
+      <label className="check">
+        <input type="checkbox" checked={!!settings.weekly_review} onChange={(e) => saveSettings({ weekly_review: e.target.checked })} />
+        <span>📊 <b>Wochenrückblick</b> am Sonntag um 19 Uhr: Wie viel hast du diese Woche gelernt (Ziel vs. Ist)?</span>
+      </label>
+      <p className="muted small">⏱️ Läuft ein Timer länger als 3 Stunden, bekommst du automatisch eine Nachricht („Läuft dein Timer noch?“).</p>
+
       <label className="lbl">Wann erinnern? (Standard je Art)</label>
       <div className="rem-list">
         {KINDS.map((k) => <Sel key={k} label={KIND_LABEL[k]} value={defs[k] ?? defs._other} onChange={(v) => setDef(k, v)} />)}

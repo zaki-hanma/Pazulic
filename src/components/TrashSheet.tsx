@@ -8,7 +8,9 @@ import Sheet from "./Sheet";
 export default function TrashSheet({ onClose }: { onClose: () => void }) {
   const { trash, blocks, restoreBlock, purgeBlock, unskipOccurrence, googleMarks, saveGoogleMark } = useStore();
   const { titles } = useGoogle();
-  const skipped = blocks.flatMap((b) => (b.skip_dates ?? []).map((d) => ({ b, d }))).sort((a, b) => b.d.localeCompare(a.d));
+  // Tage, die mit „Nur diesen Tag ändern“ zu einem eigenen Eintrag wurden, nicht anbieten (sonst doppelt)
+  const moved = new Set(blocks.map((x) => x.detached_from).filter(Boolean));
+  const skipped = blocks.flatMap((b) => (b.skip_dates ?? []).filter((d) => !moved.has(`${b.id}|${d}`)).map((d) => ({ b, d }))).sort((a, b) => b.d.localeCompare(a.d));
   const hidden = googleMarks.filter((m) => m.hidden);
   const empty = !trash.length && !skipped.length && !hidden.length;
   const delDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString("de-DE") : "");

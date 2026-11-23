@@ -117,7 +117,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       supabase.from("long_goals").select("*").order("date"),
       supabase.from("grades").select("*"),
       supabase.from("report_grades").select("*"),
-      supabase.from("user_settings").select("google_ical_url, google_enabled, remind_defaults, timezone, vacations, vacation_choices").maybeSingle(),
+      supabase.from("user_settings").select("google_ical_url, google_enabled, remind_defaults, timezone, vacations, vacation_choices, morning_time, weekly_review, templates").maybeSingle(),
       supabase.from("subjects").select("*").order("sort"),
       supabase.from("custom_kinds").select("*").order("created_at"),
       supabase.from("google_marks").select("*"),
@@ -250,7 +250,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       exam_id: x.exam_id ?? null, date: x.date, start_time: x.start_time, end_time: x.end_time, kind: x.kind,
       title: x.title ?? "", topic_ids: x.topic_ids ?? [], planned_minutes: x.planned_minutes ?? 0,
       repeat_weekdays: null, repeat_rule: null, custom_kind_id: x.custom_kind_id ?? null, remind_minutes: x.remind_minutes ?? null,
-      done: x.date === date && b.completed_dates.includes(date), completed_dates: [], ...(note && x.date === date ? { day_notes: { [date]: note } } : {}),
+      done: x.date === date && b.completed_dates.includes(date), completed_dates: [], detached_from: `${b.id}|${date}`, ...(note && x.date === date ? { day_notes: { [date]: note } } : {}),
     };
     const res = await supabase.from("plan_blocks").insert(row).select().single();
     if (res.error) { setError(FAIL); return false; }
