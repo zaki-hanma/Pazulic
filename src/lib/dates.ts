@@ -121,6 +121,13 @@ const FERIEN: { name: string; from: string; to: string }[] = [
   { name: "Brückentag", from: "2027-05-07", to: "2027-05-07" },
   { name: "Brückentag", from: "2027-05-18", to: "2027-05-18" },
   { name: "Sommerferien", from: "2027-07-08", to: "2027-08-18" },
+  { name: "Herbstferien", from: "2027-10-16", to: "2027-10-30" },
+  { name: "Weihnachtsferien", from: "2027-12-23", to: "2028-01-08" },
+  { name: "Halbjahresferien", from: "2028-01-31", to: "2028-02-01" },
+  { name: "Osterferien", from: "2028-04-10", to: "2028-04-22" },
+  { name: "Brückentag", from: "2028-05-26", to: "2028-05-26" },
+  { name: "Pfingstferien", from: "2028-06-06", to: "2028-06-06" },
+  { name: "Sommerferien", from: "2028-07-20", to: "2028-08-30" },
 ];
 
 export function ferienName(date: string): string | null {
