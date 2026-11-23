@@ -17,7 +17,7 @@ const BG: Record<string, string> = { "/noten": "tafel", "/langfristig": "reise" 
 
 export default function Layout() {
   const { pathname } = useLocation();
-  const { error, clearError, auth } = useStore();
+  const { error, clearError, auth, offline, pending } = useStore();
   const [settings, setSettings] = useState(false);
   const bg = BG[pathname] ?? "bibliothek";
   return (
@@ -45,6 +45,11 @@ export default function Layout() {
         {error && (
           <div className="toast" role="alert" onClick={clearError}>
             {error} <span className="muted">(tippen zum Schließen)</span>
+          </div>
+        )}
+        {(offline || pending > 0) && (
+          <div className={"net-bar" + (offline ? " off" : "")} role="status">
+            {offline ? <>📴 <b>Offline</b> – du siehst den letzten Stand.{pending > 0 ? ` ${pending} Änderung${pending === 1 ? "" : "en"} werden gespeichert, sobald du wieder Internet hast.` : " Abhaken, Notizen und Timer funktionieren trotzdem."}</> : <>🔄 {pending} Änderung{pending === 1 ? "" : "en"} werden gespeichert …</>}
           </div>
         )}
         <Outlet />

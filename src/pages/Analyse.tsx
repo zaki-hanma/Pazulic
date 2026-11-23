@@ -3,6 +3,7 @@ import { MONTHS, minutesBetween, parseYmd, ymd } from "../lib/dates";
 import { occurrencesOn } from "../lib/plan";
 import { isStudy } from "../lib/types";
 import { googleKind, kindInfo } from "../lib/labels";
+import Driving from "../components/Driving";
 import { useGoogle } from "../lib/google";
 import { gDuration } from "../components/GRow";
 import type { Block, Kind } from "../lib/types";
@@ -84,8 +85,8 @@ function Alltag({ blocks }: { blocks: Block[] }) {
 }
 
 export default function Analyse() {
-  const [tab, setTab] = useState<"lernen" | "alltag">(() => { try { return (localStorage.getItem("analyse-tab") as "alltag") || "lernen"; } catch { return "lernen"; } });
-  const pick = (v: "lernen" | "alltag") => { setTab(v); try { localStorage.setItem("analyse-tab", v); } catch { /* egal */ } };
+  const [tab, setTab] = useState<"lernen" | "alltag" | "fs">(() => { try { return (localStorage.getItem("analyse-tab") as "alltag") || "lernen"; } catch { return "lernen"; } });
+  const pick = (v: "lernen" | "alltag" | "fs") => { setTab(v); try { localStorage.setItem("analyse-tab", v); } catch { /* egal */ } };
   const { blocks } = useStore();
   return (
     <div className="page">
@@ -93,8 +94,9 @@ export default function Analyse() {
       <div className="seg wide">
         <button className={tab === "lernen" ? "on" : ""} onClick={() => pick("lernen")}>Lernen</button>
         <button className={tab === "alltag" ? "on" : ""} onClick={() => pick("alltag")}>Alltag</button>
+        <button className={tab === "fs" ? "on" : ""} onClick={() => pick("fs")}>🚗 Führerschein</button>
       </div>
-      {tab === "lernen" ? <Lernen /> : <Alltag blocks={blocks} />}
+      {tab === "lernen" ? <Lernen /> : tab === "fs" ? <Driving /> : <Alltag blocks={blocks} />}
     </div>
   );
 }

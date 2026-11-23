@@ -376,3 +376,11 @@ textarea.note { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1p
 .tpl-list li { display: flex; gap: 10px; justify-content: space-between; align-items: center; padding: 10px; border-radius: 12px; background: rgba(255,255,255,.05); }
 .tpl-items { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .tpl-items .pill { font-size: .72rem; }
+
+/* Offline-Hinweis */
+.net-bar { margin: 0 0 12px; padding: 9px 12px; border-radius: 12px; font-size: .85rem; background: color-mix(in srgb, var(--blue) 18%, transparent); border: 1px solid color-mix(in srgb, var(--blue) 45%, transparent); }
+.net-bar.off { background: color-mix(in srgb, var(--yellow) 16%, transparent); border-color: color-mix(in srgb, var(--yellow) 45%, transparent); }
+
+.drive-list li { flex-wrap: wrap; gap: 6px; }
+.drive-list select { max-width: 190px; font-size: .85rem; padding: 6px 8px; }
+@media (max-width: 900px) { .net-bar { margin-right: 48px; } }

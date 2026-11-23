@@ -1,11 +1,11 @@
 // Kleiner Service Worker: App-Dateien offline verfügbar, Daten immer frisch aus dem Netz.
-const C = "pazulic-v2";
-self.addEventListener("install", (e) => { self.skipWaiting(); });
+const C = "pazulic-v3";
+self.addEventListener("install", (e) => { self.skipWaiting(); e.waitUntil(caches.open(C).then((c) => c.addAll(["./", "./index.html"]).catch(() => {}))); });
 self.addEventListener("activate", (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== C).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", (e) => {
   const u = new URL(e.request.url);
   if (e.request.method !== "GET" || u.origin !== location.origin) return;
-  e.respondWith(fetch(e.request).then((r) => { const c = r.clone(); caches.open(C).then((ca) => ca.put(e.request, c)); return r; }).catch(() => caches.match(e.request).then((r) => r || caches.match("./"))));
+  e.respondWith(fetch(e.request).then((r) => { const c = r.clone(); caches.open(C).then((ca) => ca.put(e.request, c)); return r; }).catch(() => caches.match(e.request, { ignoreSearch: true, ignoreVary: true }).then((r) => r || (e.request.mode === "navigate" ? caches.match("./") : undefined)).then((r) => r || Response.error())));
 });
 
 // ---------- Erinnerungen (Push) ----------

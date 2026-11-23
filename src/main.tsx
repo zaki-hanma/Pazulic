@@ -41,5 +41,14 @@ createRoot(document.getElementById("root")!).render(
 boot();
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+    // Offline-Modus: alle schon geladenen App-Dateien sofort speichern (auch beim allerersten Besuch)
+    setTimeout(() => {
+      try {
+        const urls = performance.getEntriesByType("resource").map((r) => r.name).filter((u) => u.startsWith(location.origin) && !u.includes("/sw.js"));
+        caches.open("pazulic-v3").then((c) => c.addAll([...new Set(["./", ...urls])])).catch(() => {});
+      } catch { /* egal */ }
+    }, 3000);
+  });
 }

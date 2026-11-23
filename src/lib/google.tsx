@@ -8,6 +8,8 @@ import { addDays, today, ymd } from "./dates";
 /** Datum für „alle Termine dieser Serie ausblenden“. */
 export const HIDE_ALL = "2000-01-01";
 
+const GKEY = "pazulic-google-";
+
 export interface GEvent { uid: string; date: string; start: string; end: string; allDay: boolean; title: string }
 
 interface G { byDate: Map<string, GEvent[]>; titles: Map<string, string>; loading: boolean; error: string | null; lastLoad: Date | null; reload: () => void }
@@ -21,7 +23,7 @@ async function parse(text: string): Promise<GEvent[]> {
   const ICAL = (await import("ical.js")).default;
   const comp = new ICAL.Component(ICAL.parse(text));
   for (const tz of comp.getAllSubcomponents("vtimezone")) ICAL.TimezoneService.register(tz);
-  const from = addDays(today(), -60), to = addDays(today(), 400);
+  const from = addDays(today(), -400), to = addDays(today(), 400); // weit zurück: z. B. für die Fahrstunden-Übersicht
   const vevents = comp.getAllSubcomponents("vevent").map((v) => new ICAL.Event(v));
   const masters = new Map<string, InstanceType<typeof ICAL.Event>>();
   for (const e of vevents) if (!e.isRecurrenceException()) masters.set(e.uid, e);
@@ -74,15 +76,20 @@ export function GoogleProvider({ children }: { children: ReactNode }) {
 
   const load = useCallback(async () => {
     if (!on || !auth) { setEvents([]); return; }
+    setEvents((cur) => { if (cur.length) return cur; try { const c = localStorage.getItem(GKEY + auth.user.id); return c ? JSON.parse(c) : cur; } catch { return cur; } });
     setLoading(true); setError(null);
     try {
       const { data, error: err } = await supabase.functions.invoke("google-ical", { method: "GET" });
       if (err) throw err;
       const text = typeof data === "string" ? data : data instanceof Blob ? await data.text() : "";
-      setEvents(text ? await parse(text) : []);
+      const evs = text ? await parse(text) : [];
+      setEvents(evs);
       setLastLoad(new Date());
+      try { localStorage.setItem(GKEY + auth.user.id, JSON.stringify(evs)); } catch { /* voll */ }
     } catch {
-      setError("Google Kalender konnte nicht geladen werden. Prüfe den Link in den Einstellungen.");
+      // Ohne Internet: letzten Stand zeigen, keine Fehlermeldung
+      if (!navigator.onLine) { try { const c = localStorage.getItem(GKEY + auth.user.id); if (c) setEvents(JSON.parse(c)); } catch { /* egal */ } }
+      else setError("Google Kalender konnte nicht geladen werden. Prüfe den Link in den Einstellungen.");
     }
     setLoading(false);
   }, [on, auth, settings.google_ical_url]); // eslint-disable-line react-hooks/exhaustive-deps

@@ -7,8 +7,13 @@ import { supabase } from "./supabase";
 import type { ActivityLog, Block, CustomKind, Exam, Goal, GoogleMark, GoogleRule, Grade, ReportGrade, Session, Settings, SubjectRow, TimerState } from "./types";
 import { isRepeating } from "./plan";
 import { releasePush, syncPush } from "./push";
+import { clearCache, flushQueue, isNetErr, loadCache, pendingCount, runOrQueue, saveCache } from "./offline";
 
 interface Store {
+  /** Kein Internet: es wird der letzte Stand gezeigt */
+  offline: boolean;
+  /** Änderungen, die noch gespeichert werden müssen */
+  pending: number;
   auth: AuthSession | null;
   authReady: boolean;
   ready: boolean;
@@ -96,19 +101,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [settings, setSettingsState] = useState<Settings>({ google_ical_url: null, google_enabled: false });
   const [timer, setTimerState] = useState<TimerState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [offline, setOffline] = useState(() => typeof navigator !== "undefined" && !navigator.onLine);
+  const [pending, setPending] = useState(0);
   const uid = auth?.user.id;
   const loading = useRef(false);
   const timerTouched = useRef(0); // Zeitpunkt der letzten lokalen Timer-Änderung
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => { setAuth(data.session); setAuthReady(true); });
-    const { data } = supabase.auth.onAuthStateChange((e, s) => { if (e === "PASSWORD_RECOVERY") { sessionStorage.setItem("pw-recovery", "1"); window.dispatchEvent(new Event("pw-recovery")); } setAuth(s); });
+    // Ohne Internet kann die Anmeldung nicht erneuert werden – dann den gespeicherten Stand nehmen (nur zum Anzeigen)
+    const stored = (): AuthSession | null => {
+      try { const k = Object.keys(localStorage).find((x) => x.startsWith("sb-") && x.endsWith("-auth-token")); return k ? (JSON.parse(localStorage.getItem(k)!) as AuthSession) : null; } catch { return null; }
+    };
+    if (!navigator.onLine) { const s0 = stored(); if (s0) { setAuth(s0); setAuthReady(true); } }
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session || navigator.onLine) setAuth(data.session);
+      setAuthReady(true);
+    });
+    const { data } = supabase.auth.onAuthStateChange((e, s) => {
+      if (e === "PASSWORD_RECOVERY") { sessionStorage.setItem("pw-recovery", "1"); window.dispatchEvent(new Event("pw-recovery")); }
+      if (!s && !navigator.onLine && e !== "SIGNED_OUT") return; // offline: angemeldet bleiben
+      setAuth(s);
+    });
     return () => data.subscription.unsubscribe();
   }, []);
 
   const loadAll = useCallback(async () => {
     if (!uid || loading.current) return;
     loading.current = true;
+    // Erst gemerkte Offline-Änderungen speichern, dann neu laden
+    if (pendingCount(uid) && navigator.onLine) await flushQueue(uid);
+    setPending(pendingCount(uid));
     const [e, b, s, t, g, gr, rg, st, sj, ck, gm, grl, al] = await Promise.all([
       supabase.from("exams").select("*").order("date"),
       supabase.from("plan_blocks").select("*"),
@@ -117,7 +139,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       supabase.from("long_goals").select("*").order("date"),
       supabase.from("grades").select("*"),
       supabase.from("report_grades").select("*"),
-      supabase.from("user_settings").select("google_ical_url, google_enabled, remind_defaults, timezone, vacations, vacation_choices, morning_time, weekly_review, templates").maybeSingle(),
+      supabase.from("user_settings").select("google_ical_url, google_enabled, remind_defaults, timezone, vacations, vacation_choices, morning_time, weekly_review, templates, driving").maybeSingle(),
       supabase.from("subjects").select("*").order("sort"),
       supabase.from("custom_kinds").select("*").order("created_at"),
       supabase.from("google_marks").select("*"),
@@ -125,7 +147,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       supabase.from("activity_logs").select("*"),
     ]);
     loading.current = false;
-    if (e.error || b.error || s.error || g.error || gr.error || rg.error || sj.error || ck.error || gm.error || grl.error || al.error) { setError("Daten konnten nicht geladen werden. Bitte später nochmal öffnen."); return; }
+    const firstErr = [e, b, s, g, gr, rg, sj, ck, gm, grl, al].find((x) => x.error)?.error;
+    if (firstErr) {
+      if (isNetErr(firstErr)) { setOffline(true); if (loadCache(uid)) setReady(true); else setError("Keine Internetverbindung. Bitte verbinde dich einmal, damit Pazulic deine Daten laden kann."); return; }
+      setError("Daten konnten nicht geladen werden. Bitte später nochmal öffnen."); return;
+    }
+    setOffline(false);
+    saveCache(uid, { exams: e.data, blocks: b.data, sessions: s.data, timer: t.data, goals: g.data, grades: gr.data, reportGrades: rg.data, settings: st.data, subjects: sj.data, customKinds: ck.data, googleMarks: gm.data, googleRules: grl.data, activityLogs: al.data });
     const cutoff = new Date(Date.now() - 30 * 864e5).toISOString();
     const old = (b.data as Block[]).filter((x) => x.deleted_at && x.deleted_at < cutoff).map((x) => x.id);
     if (old.length) supabase.from("plan_blocks").delete().in("id", old).then(() => {});
@@ -143,7 +171,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Einmal laden, danach live über Realtime (Handy und Laptop bleiben synchron).
   useEffect(() => {
     if (!uid) { setReady(false); setExams([]); setBlocks([]); setSessions([]); setGoals([]); setGrades([]); setReportGrades([]); setSubjects([]); setCustomKinds([]); setGoogleMarks([]); setGoogleRules([]); setActivityLogs([]); setTimerState(null); return; }
+    // Sofort den letzten Stand zeigen (schneller Start, und offline nutzbar)
+    type C = { exams: Exam[]; blocks: Block[]; sessions: Session[]; timer: TimerState | null; goals: Goal[]; grades: Grade[]; reportGrades: ReportGrade[]; settings: Settings | null; subjects: SubjectRow[]; customKinds: CustomKind[]; googleMarks: GoogleMark[]; googleRules: GoogleRule[]; activityLogs: ActivityLog[] };
+    const c = loadCache<C>(uid)?.data;
+    if (c) {
+      setExams(c.exams ?? []); setBlocks(c.blocks ?? []); setSessions(c.sessions ?? []); setGoals(c.goals ?? []);
+      setGrades((c.grades ?? []).map((x) => ({ ...x, points: x.points == null ? null : Number(x.points), max_points: x.max_points == null ? null : Number(x.max_points) })));
+      setReportGrades(c.reportGrades ?? []); setCustomKinds(c.customKinds ?? []); setGoogleMarks(c.googleMarks ?? []); setGoogleRules(c.googleRules ?? []); setActivityLogs(c.activityLogs ?? []);
+      setSubjects((c.subjects ?? []).map((x) => ({ ...x, hours: Number(x.hours) })));
+      if (c.settings) setSettingsState(c.settings);
+      setTimerState(c.timer ?? null);
+      setReady(true);
+    }
+    setPending(pendingCount(uid));
     loadAll();
+    const goOnline = () => { setOffline(false); loadAll(); };
+    const goOffline = () => setOffline(true);
+    const onQueue = () => setPending(pendingCount(uid));
+    window.addEventListener("online", goOnline); window.addEventListener("offline", goOffline); window.addEventListener("pazulic-queue", onQueue);
     let t: number | undefined;
     const reload = () => { window.clearTimeout(t); t = window.setTimeout(loadAll, 300); };
     const ch = supabase.channel("pazulic-" + uid)
@@ -163,7 +208,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .subscribe();
     const onVis = () => { if (document.visibilityState === "visible") loadAll(); };
     document.addEventListener("visibilitychange", onVis);
-    return () => { supabase.removeChannel(ch); document.removeEventListener("visibilitychange", onVis); window.clearTimeout(t); };
+    return () => { supabase.removeChannel(ch); document.removeEventListener("visibilitychange", onVis); window.clearTimeout(t); window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); window.removeEventListener("pazulic-queue", onQueue); };
   }, [uid, loadAll]);
 
   const saveExam: Store["saveExam"] = async (x) => {
@@ -226,8 +271,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const skipOccurrence: Store["skipOccurrence"] = async (b, date) => {
     const skip_dates = [...new Set([...(b.skip_dates ?? []), date])];
     setBlocks((p) => p.map((x) => (x.id === b.id ? { ...x, skip_dates } : x)));
-    const { error: err } = await supabase.from("plan_blocks").update({ skip_dates }).eq("id", b.id);
-    if (err) { setError(FAIL); setBlocks((p) => p.map((x) => (x.id === b.id ? b : x))); return false; }
+    if (!(await runOrQueue(uid!, { t: "update", table: "plan_blocks", id: b.id, row: { skip_dates } }))) { setError(FAIL); setBlocks((p) => p.map((x) => (x.id === b.id ? b : x))); return false; }
     return true;
   };
 
@@ -339,8 +383,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const saveDayNote: Store["saveDayNote"] = async (b, date, text) => {
     const day_notes = { ...(b.day_notes ?? {}) };
     if (text.trim()) day_notes[date] = text.trim().slice(0, 4000); else delete day_notes[date];
-    const { error: err } = await supabase.from("plan_blocks").update({ day_notes }).eq("id", b.id);
-    if (err) { setError(FAIL); return false; }
+    if (!(await runOrQueue(uid!, { t: "update", table: "plan_blocks", id: b.id, row: { day_notes } }))) { setError(FAIL); return false; }
     setBlocks((p) => p.map((x) => (x.id === b.id ? { ...x, day_notes } : x)));
     return true;
   };
@@ -360,14 +403,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       patch = { completed_dates: has ? b.completed_dates.filter((d) => d !== date) : [...b.completed_dates, date] };
     } else patch = { done: !b.done };
     setBlocks((p) => p.map((x) => (x.id === b.id ? { ...x, ...patch } : x))); // sofort anzeigen
-    const { error: err } = await supabase.from("plan_blocks").update(patch).eq("id", b.id);
-    if (err) { setError(FAIL); setBlocks((p) => p.map((x) => (x.id === b.id ? b : x))); }
+    if (!(await runOrQueue(uid!, { t: "update", table: "plan_blocks", id: b.id, row: patch as Record<string, unknown> }))) { setError(FAIL); setBlocks((p) => p.map((x) => (x.id === b.id ? b : x))); }
   };
 
   const addSession: Store["addSession"] = async (s) => {
-    const res = await supabase.from("study_sessions").insert(s).select().single();
-    if (res.error) { setError(FAIL); return false; }
-    setSessions((p) => [...p, res.data as Session]);
+    const row = { ...s, id: crypto.randomUUID() };
+    if (!(await runOrQueue(uid!, { t: "insert", table: "study_sessions", row }))) { setError(FAIL); return false; }
+    setSessions((p) => [...p, { ...row, user_id: uid!, created_at: new Date().toISOString() } as Session]);
     return true;
   };
 
@@ -379,9 +421,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const addActivityLog: Store["addActivityLog"] = async (l) => {
-    const res = await supabase.from("activity_logs").insert(l).select().single();
-    if (res.error) { setError(FAIL); return false; }
-    setActivityLogs((p) => [...p, res.data as ActivityLog]);
+    const row = { ...l, id: crypto.randomUUID() };
+    if (!(await runOrQueue(uid!, { t: "insert", table: "activity_logs", row }))) { setError(FAIL); return false; }
+    setActivityLogs((p) => [...p, { ...row, user_id: uid!, created_at: new Date().toISOString() } as ActivityLog]);
     return true;
   };
 
@@ -395,9 +437,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const setTimer: Store["setTimer"] = async (t) => {
     timerTouched.current = Date.now();
     setTimerState(t);
-    if (!t) { await supabase.from("timer_state").delete().eq("user_id", uid!); return; }
-    const { error: err } = await supabase.from("timer_state").upsert({ ...t, user_id: uid, updated_at: new Date().toISOString() });
-    if (err) setError(FAIL);
+    if (!t) { await runOrQueue(uid!, { t: "delete", table: "timer_state", col: "user_id", val: uid! }); return; }
+    if (!(await runOrQueue(uid!, { t: "upsert", table: "timer_state", row: { ...t, user_id: uid, updated_at: new Date().toISOString() } }))) setError(FAIL);
   };
 
   const saveGrade: Store["saveGrade"] = async (x) => {
@@ -454,7 +495,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => { if (uidNow) syncPush(); }, [uidNow]);
 
   const signOut = async () => {
+    if (uid && pendingCount(uid) && !window.confirm("Du hast noch Änderungen, die ohne Internet gemacht wurden und noch nicht gespeichert sind. Trotzdem abmelden? Dann gehen sie verloren.")) return;
     await Promise.race([releasePush(), new Promise((r) => setTimeout(r, 2000))]);
+    if (uid) clearCache(uid);
     try {
       await Promise.race([supabase.auth.signOut({ scope: "local" }), new Promise((r) => setTimeout(r, 3000))]);
     } catch { /* egal – wir räumen unten trotzdem auf */ }
@@ -467,10 +510,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const value = useMemo<Store>(() => ({
-    auth, authReady, ready, exams, blocks, trash, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, googleRules, activityLogs, settings, timer, error, clearError: () => setError(null),
+    offline, pending, auth, authReady, ready, exams, blocks, trash, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, googleRules, activityLogs, settings, timer, error, clearError: () => setError(null),
     saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, restoreBlock, purgeBlock, unskipOccurrence, saveDayNote, addBlocks, skipOccurrence, skipMany, detachOccurrence, saveCustomKind, deleteCustomKind, saveGoogleMark, saveGoogleRule, deleteGoogleRule, toggleDone, addSession, deleteSession, addActivityLog, deleteActivityLog, setTimer, saveGrade, deleteGrade, saveReportGrade, saveSettings, saveSubjects, deleteSubject, reloadAll: loadAll, signOut,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [auth, authReady, ready, exams, blocks, trash, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, googleRules, activityLogs, settings, timer, error]);
+  }), [offline, pending, auth, authReady, ready, exams, blocks, trash, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, googleRules, activityLogs, settings, timer, error]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
