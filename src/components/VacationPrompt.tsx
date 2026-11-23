@@ -3,7 +3,6 @@ import { useStore } from "../lib/store";
 import { affectedBy, useVacations } from "../lib/vacation";
 import type { Period } from "../lib/vacation";
 import { OFF_ICON, OFF_LABEL } from "../lib/vacation";
-import { isStudy } from "../lib/types";
 import { kindInfo } from "../lib/labels";
 import { hhmm, shortDate, today } from "../lib/dates";
 import Sheet from "./Sheet";
@@ -20,17 +19,20 @@ export default function VacationPrompt() {
   const todo = useMemo(() => periods
     .filter((p) => p.end >= today() && !choices[p.key])
     .map((p) => ({ p, list: affectedBy(p, blocks) }))
-    .filter((x) => x.list.length > 0), [periods, blocks, choices]);
+    .map((x) => ({ ...x, alltag: x.list.filter((a) => a.alltag) }))
+    // Nur fragen, wenn wirklich Alltag (Arbeit, Schule, Fahrt …) im Urlaub steht – nicht wegen Schlafen, Essen, Serie …
+    .filter((x) => x.alltag.length > 0), [periods, blocks, choices]);
 
   if (!todo.length) return null;
   const decide = (p: Period, c: "keep" | "skip") => saveSettings({ vacation_choices: { ...choices, [p.key]: c } });
 
   return (
     <>
-      {todo.map(({ p, list }) => (
+      {todo.map(({ p, alltag: list }) => (
         <section key={p.key} className={"card vac-prompt" + (p.type === "frei" ? " frei" : "")}>
           <h2>{OFF_ICON[p.type]} {p.name}: {range(p)}</h2>
-          <p>{p.type === "frei" ? "An deinem freien Tag" : "In deinem Urlaub"} stehen noch <b>{list.reduce((a, x) => a + x.dates.length, 0)} Alltags-Termine</b> im Plan (z. B. {[...new Set(list.map((x) => x.b.title))].slice(0, 3).join(", ")}).</p>
+          <p>{p.type === "frei" ? "An deinem freien Tag" : "In deinem Urlaub"} stehen noch <b>{list.reduce((a, x) => a + x.dates.length, 0)} Alltags-Termine</b> im Plan: {[...new Set(list.map((x) => x.b.title))].slice(0, 4).join(", ")}.</p>
+          <p className="muted small">Betroffene Tage: {[...new Set(list.flatMap((x) => x.dates))].sort().slice(0, 6).map(shortDate).join(", ")}{new Set(list.flatMap((x) => x.dates)).size > 6 ? " …" : ""}</p>
           <p className="muted small">Sollen sie für diese Zeit gelöscht werden? Du bekommst dann auch keine Erinnerungen dafür.</p>
           <div className="detail-actions">
             <button className="btn primary" onClick={() => setOpen(p)}>Auswählen & löschen</button>
@@ -45,9 +47,9 @@ export default function VacationPrompt() {
 
 function Pick({ p, onDone, decide }: { p: Period; onDone: () => void; decide: (p: Period, c: "keep" | "skip") => Promise<boolean> }) {
   const { blocks, customKinds, skipMany } = useStore();
-  const list = useMemo(() => affectedBy(p, blocks), [p, blocks]);
+  const list = useMemo(() => affectedBy(p, blocks).sort((a, b) => Number(b.alltag) - Number(a.alltag)), [p, blocks]);
   // Vorauswahl: alles außer Lernen/Wiederholung
-  const [sel, setSel] = useState<Set<string>>(() => new Set(list.filter((x) => !isStudy(x.b.kind)).map((x) => x.b.id)));
+  const [sel, setSel] = useState<Set<string>>(() => new Set(list.filter((x) => x.alltag).map((x) => x.b.id)));
   const [busy, setBusy] = useState(false);
   const flip = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
@@ -70,7 +72,7 @@ function Pick({ p, onDone, decide }: { p: Period; onDone: () => void; decide: (p
               <label>
                 <input type="checkbox" checked={sel.has(x.b.id)} onChange={() => flip(x.b.id)} />
                 <span className="pill" style={{ ["--c" as string]: k.color }}>{k.label}</span>
-                <span><b>{x.b.title}</b><br /><span className="muted small">{hhmm(x.b.start_time)}–{hhmm(x.b.end_time)} · {x.dates.length}× im Urlaub</span></span>
+                <span><b>{x.b.title}</b><br /><span className="muted small">{hhmm(x.b.start_time)}–{hhmm(x.b.end_time)} · {x.dates.length}× ({x.dates.slice(0, 4).map(shortDate).join(", ")}{x.dates.length > 4 ? " …" : ""}){!x.alltag && " · kein Alltag"}</span></span>
               </label>
             </li>
           );

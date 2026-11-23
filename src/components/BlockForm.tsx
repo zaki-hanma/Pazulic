@@ -5,6 +5,7 @@ import { KINDS, KIND_COLOR, KIND_LABEL, isStudy } from "../lib/types";
 import { hhmm, minutesBetween, fmtMin, isoWeekday, parseYmd, overnight } from "../lib/dates";
 import { isRepeating, learnMinutes, ruleText } from "../lib/plan";
 import NewKind from "./NewKind";
+import { kindInfo } from "../lib/labels";
 import { DEFAULT_REMIND, REMIND_OPTIONS, remindText } from "../lib/push";
 
 const WD = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
@@ -18,6 +19,8 @@ export default function BlockForm({ block, date, onDone }: Props) {
   const [kind, setKind] = useState<Kind>(block?.kind ?? "lernen");
   const [customId, setCustomId] = useState<string | null>(block?.custom_kind_id ?? null);
   const [newKind, setNewKind] = useState(false);
+  const [pickOpen, setPickOpen] = useState(false);
+  const [kindQ, setKindQ] = useState("");
   const [title, setTitle] = useState(block?.title ?? "");
   const [examId, setExamId] = useState<string>(block?.exam_id ?? exams.find((e) => e.date >= date)?.id ?? "");
   const [topics, setTopics] = useState<string[]>(block?.topic_ids ?? []);
@@ -100,19 +103,30 @@ export default function BlockForm({ block, date, onDone }: Props) {
         </>
       )}
       <label className="lbl">Art</label>
-      <div className="chips">
-        {KINDS.map((k) => (
-          <button type="button" key={k} className={"chip" + (kind === k && !customId ? " on" : "")} style={{ ["--c" as string]: KIND_COLOR[k] }} onClick={() => pickKind(k, null)}>
-            <i className="dot" />{KIND_LABEL[k]}
-          </button>
-        ))}
-        {customKinds.map((c) => (
-          <button type="button" key={c.id} className={"chip" + (customId === c.id ? " on" : "")} style={{ ["--c" as string]: c.color }} onClick={() => pickKind("sonstiges", c.id)}>
-            <i className="dot" />{c.name}
-          </button>
-        ))}
-        <button type="button" className="chip" style={{ ["--c" as string]: "var(--yellow)" }} onClick={() => setNewKind(true)}>+ Eigene Art</button>
+      <div className="kind-pick">
+        {(() => { const k = kindInfo(kind, customId, customKinds); return (
+          <button type="button" className="chip on big" style={{ ["--c" as string]: k.color }} onClick={() => setPickOpen((o) => !o)}><i className="dot" />{k.label}</button>
+        ); })()}
+        <button type="button" className={"chip add" + (pickOpen ? " on" : "")} style={{ ["--c" as string]: "var(--yellow)" }} onClick={() => { setPickOpen((o) => !o); setKindQ(""); }} aria-expanded={pickOpen}>{pickOpen ? "✕ Schließen" : "＋ Art wählen"}</button>
       </div>
+      {pickOpen && (
+        <div className="kind-panel">
+          {KINDS.length + customKinds.length > 10 && <input className="kind-search" value={kindQ} onChange={(e) => setKindQ(e.target.value)} placeholder="Art suchen …" aria-label="Art suchen" />}
+          <div className="chips">
+            {KINDS.filter((k) => KIND_LABEL[k].toLowerCase().includes(kindQ.toLowerCase())).map((k) => (
+              <button type="button" key={k} className={"chip" + (kind === k && !customId ? " on" : "")} style={{ ["--c" as string]: KIND_COLOR[k] }} onClick={() => { pickKind(k, null); setPickOpen(false); }}>
+                <i className="dot" />{KIND_LABEL[k]}
+              </button>
+            ))}
+            {customKinds.filter((c) => c.name.toLowerCase().includes(kindQ.toLowerCase())).map((c) => (
+              <button type="button" key={c.id} className={"chip" + (customId === c.id ? " on" : "")} style={{ ["--c" as string]: c.color }} onClick={() => { pickKind("sonstiges", c.id); setPickOpen(false); }}>
+                <i className="dot" />{c.name}
+              </button>
+            ))}
+            <button type="button" className="chip" style={{ ["--c" as string]: "var(--yellow)" }} onClick={() => { setNewKind(true); setPickOpen(false); }}>+ Eigene Art</button>
+          </div>
+        </div>
+      )}
       {newKind && <NewKind onSaved={(k) => { pickKind("sonstiges", k.id); setNewKind(false); }} onCancel={() => setNewKind(false)} />}
 
       {study && (

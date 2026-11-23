@@ -360,3 +360,11 @@ textarea.note { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1p
 .lg.frei { background: color-mix(in srgb, var(--frei) 60%, transparent); }
 .vac-prompt.frei { border-color: color-mix(in srgb, var(--frei) 55%, transparent); }
 .vac-prompt.frei h2 { color: var(--frei); }
+
+/* Art-Auswahl im Formular */
+.kind-pick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip.big { padding: 9px 14px; font-size: 0.95rem; }
+.chip.add { border-style: dashed; padding: 9px 14px; font-size: 0.95rem; }
+.kind-panel { margin-top: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.04); display: grid; gap: 8px; }
+.kind-panel .chip { padding: 9px 13px; }
+.kind-search { width: 100%; }

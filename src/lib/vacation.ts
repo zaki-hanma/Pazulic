@@ -57,7 +57,12 @@ export function useVacations() {
   }, [google, settings.vacations, blocks, googleMarks, googleRules]);
 }
 
-export interface Affected { b: Block; dates: string[] }
+export interface Affected { b: Block; dates: string[]; alltag: boolean }
+
+/** „Alltag“ = Pflicht-Termine wie Arbeit, Schule, Fahrt, Nachhilfe (und eigene Arten).
+ *  Schlafen, Essen, Freizeit, Lernen und Sonstiges (z. B. Sauna) gehören NICHT dazu. */
+const NOT_ALLTAG = new Set(["schlafen", "essen", "freizeit", "lernen", "wiederholung", "sonstiges", "urlaub", "frei"]);
+export const isAlltag = (b: Block) => !!b.custom_kind_id || !NOT_ALLTAG.has(b.kind);
 
 /** Wiederholte Einträge (Alltag), die im Urlaub/Frei (ab heute) noch im Plan stehen. */
 export function affectedBy(p: Period, blocks: Block[]): Affected[] {
@@ -66,7 +71,7 @@ export function affectedBy(p: Period, blocks: Block[]): Affected[] {
   for (let d = from; d <= p.end; d = addDays(d, 1)) {
     for (const o of occurrencesOn(blocks, d)) {
       if (!isRepeating(o.block) || isOff(o.block.kind)) continue;
-      const a = map.get(o.block.id) ?? { b: o.block, dates: [] };
+      const a = map.get(o.block.id) ?? { b: o.block, dates: [], alltag: isAlltag(o.block) };
       a.dates.push(d);
       map.set(o.block.id, a);
     }
