@@ -1,6 +1,6 @@
 import type { Block, Occurrence, Session, Exam, RepeatRule } from "./types";
 import { isStudy } from "./types";
-import { at, isoWeekday, minutesBetween, parseYmd, addDays, overnight } from "./dates";
+import { at, isoWeekday, minutesBetween, parseYmd, addDays, overnight, schoolFree } from "./dates";
 
 /** Pomodoro: je 30 Min. = 25 Min. Lernen, Rest bis max. 25 Min. */
 export function learnMinutes(start: string, end: string): number {
@@ -57,6 +57,7 @@ export function occurrencesOn(blocks: Block[], date: string): Occurrence[] {
   const out: Occurrence[] = [];
   for (const b of blocks) {
     if (b.skip_dates?.includes(date)) continue;
+    if (b.school && schoolFree(date)) continue;
     if (b.repeat_rule) {
       if (matchesRule(b.repeat_rule, b.date, date)) out.push({ block: b, date, done: b.completed_dates.includes(date) });
     } else if (b.repeat_weekdays && b.repeat_weekdays.length) {

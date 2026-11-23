@@ -15,6 +15,8 @@ export interface Block {
   topic_ids: string[]; planned_minutes: number; done: boolean;
   repeat_weekdays: number[] | null; completed_dates: string[]; created_at?: string;
   custom_kind_id: string | null; repeat_rule: RepeatRule | null; skip_dates: string[];
+  /** Schul-Termin: fällt in Schulferien und an Feiertagen automatisch aus. */
+  school?: boolean;
   remind_minutes?: number | null;
   deleted_at?: string | null;
   day_notes?: Record<string, string>;

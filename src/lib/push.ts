@@ -41,19 +41,41 @@ export async function enablePush(): Promise<{ ok: boolean; msg?: string }> {
   const reg = await registration();
   let sub = await reg.pushManager.getSubscription();
   if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(VAPID_PUBLIC) });
-  const j = sub.toJSON();
-  const { error } = await supabase.from("push_subscriptions").upsert(
-    { endpoint: j.endpoint, p256dh: j.keys?.p256dh, auth: j.keys?.auth, user_agent: navigator.userAgent.slice(0, 200) },
-    { onConflict: "endpoint" },
-  );
-  if (error) return { ok: false, msg: "Speichern hat nicht geklappt. Bitte nochmal versuchen." };
+  if (!(await claim(sub))) return { ok: false, msg: "Speichern hat nicht geklappt. Bitte nochmal versuchen." };
   return { ok: true };
+}
+
+/** Dieses Gerät dem angemeldeten Konto zuordnen (auch wenn vorher ein anderes Konto hier angemeldet war). */
+async function claim(sub: PushSubscription) {
+  const j = sub.toJSON();
+  const { error } = await supabase.rpc("claim_push_subscription", { p_endpoint: j.endpoint, p_p256dh: j.keys?.p256dh, p_auth: j.keys?.auth, p_ua: navigator.userAgent });
+  return !error;
+}
+
+/** Beim Start: Ist Push auf diesem Gerät an, dann sicherstellen, dass es zum aktuellen Konto gehört. */
+export async function syncPush() {
+  try {
+    if (!pushSupported() || Notification.permission !== "granted") return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = await reg?.pushManager.getSubscription();
+    if (sub) await claim(sub);
+  } catch { /* egal */ }
+}
+
+/** Beim Abmelden: dieses Gerät vom Konto lösen, damit keine fremden Erinnerungen kommen. */
+export async function releasePush() {
+  try {
+    if (!pushSupported()) return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = await reg?.pushManager.getSubscription();
+    if (sub) await supabase.rpc("release_push_subscription", { p_endpoint: sub.endpoint });
+  } catch { /* egal */ }
 }
 
 export async function disablePush() {
   const reg = await navigator.serviceWorker.getRegistration();
   const sub = await reg?.pushManager.getSubscription();
-  if (sub) { await supabase.from("push_subscriptions").delete().eq("endpoint", sub.endpoint); await sub.unsubscribe(); }
+  if (sub) { await supabase.rpc("release_push_subscription", { p_endpoint: sub.endpoint }); await sub.unsubscribe(); }
 }
 
 export async function testPush(): Promise<{ ok: boolean; devices: number }> {

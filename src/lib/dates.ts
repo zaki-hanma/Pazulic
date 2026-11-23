@@ -127,3 +127,6 @@ export function ferienName(date: string): string | null {
   const f = FERIEN.find((x) => date >= x.from && date <= x.to);
   return f ? f.name : null;
 }
+
+/** Schulfrei = Schulferien oder Feiertag (Niedersachsen). */
+export const schoolFree = (date: string) => ferienName(date) ?? holidayName(date);

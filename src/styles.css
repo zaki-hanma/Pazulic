@@ -368,3 +368,6 @@ textarea.note { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1p
 .kind-panel { margin-top: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.04); display: grid; gap: 8px; }
 .kind-panel .chip { padding: 9px 13px; }
 .kind-search { width: 100%; }
+.check { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0 4px; cursor: pointer; font-size: .9rem; }
+.check input { width: 20px; height: 20px; flex: none; margin-top: 1px; accent-color: var(--yellow); }
+.push-nudge { border-color: color-mix(in srgb, var(--yellow) 50%, transparent); }

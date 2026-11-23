@@ -6,6 +6,7 @@ import type { Session as AuthSession } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import type { ActivityLog, Block, CustomKind, Exam, Goal, GoogleMark, GoogleRule, Grade, ReportGrade, Session, Settings, SubjectRow, TimerState } from "./types";
 import { isRepeating } from "./plan";
+import { releasePush, syncPush } from "./push";
 
 interface Store {
   auth: AuthSession | null;
@@ -205,6 +206,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       title: x.title ?? "", topic_ids: x.topic_ids ?? [], planned_minutes: x.planned_minutes ?? 0,
       repeat_weekdays: x.repeat_rule ? null : x.repeat_weekdays && x.repeat_weekdays.length ? x.repeat_weekdays : null,
       repeat_rule: x.repeat_rule ?? null, custom_kind_id: x.custom_kind_id ?? null, remind_minutes: x.remind_minutes ?? null,
+      school: !!x.school,
     };
     const res = x.id ? await supabase.from("plan_blocks").update(row).eq("id", x.id).select().single()
       : await supabase.from("plan_blocks").insert(row).select().single();
@@ -448,7 +450,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   // Abmelden: immer lokal abmelden, auch wenn das Internet schlecht ist oder der Server nicht antwortet.
+  const uidNow = auth?.user.id;
+  useEffect(() => { if (uidNow) syncPush(); }, [uidNow]);
+
   const signOut = async () => {
+    await Promise.race([releasePush(), new Promise((r) => setTimeout(r, 2000))]);
     try {
       await Promise.race([supabase.auth.signOut({ scope: "local" }), new Promise((r) => setTimeout(r, 3000))]);
     } catch { /* egal – wir räumen unten trotzdem auf */ }

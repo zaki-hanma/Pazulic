@@ -28,6 +28,25 @@ const toMin = (t: string) => { const [h, m] = t.slice(0, 5).split(":").map(Numbe
 const dayDiff = (a: string, b: string) => Math.round((parseYmd(b).getTime() - parseYmd(a).getTime()) / 864e5);
 const mondayOf = (d: string) => addDays(d, 1 - isoWd(d));
 
+// ---------- Schulfrei (Niedersachsen): Ferien + Feiertage – gleich wie in der App (src/lib/dates.ts) ----------
+const FERIEN: [string, string][] = [
+  ["2026-07-02", "2026-08-12"], ["2026-10-12", "2026-10-24"], ["2026-12-23", "2027-01-09"], ["2027-02-01", "2027-02-02"],
+  ["2027-03-22", "2027-04-03"], ["2027-05-07", "2027-05-07"], ["2027-05-18", "2027-05-18"], ["2027-07-08", "2027-08-18"],
+];
+function easter(y: number) {
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4;
+  const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
+  return `${y}-${pad(month)}-${pad(day)}`;
+}
+function isHoliday(date: string) {
+  const y = Number(date.slice(0, 4)), e = easter(y);
+  const fixed = ["01-01", "05-01", "10-03", "10-31", "12-25", "12-26"].map((x) => `${y}-${x}`);
+  return fixed.includes(date) || [-2, 1, 39, 50].some((n) => addDays(e, n) === date);
+}
+const schoolFree = (date: string) => FERIEN.some(([a, b]) => date >= a && date <= b) || isHoliday(date);
+
 // deno-lint-ignore no-explicit-any
 type Any = any;
 function matchesRule(r: Any, start: string, date: string): boolean {
@@ -62,6 +81,7 @@ function matchesRule(r: Any, start: string, date: string): boolean {
 }
 function occursOn(b: Any, date: string): { done: boolean } | null {
   if (b.skip_dates?.includes(date)) return null;
+  if (b.school && schoolFree(date)) return null;
   if (b.repeat_rule) return matchesRule(b.repeat_rule, b.date, date) ? { done: b.completed_dates?.includes(date) } : null;
   if (b.repeat_weekdays?.length) return date >= b.date && b.repeat_weekdays.includes(isoWd(date)) ? { done: b.completed_dates?.includes(date) } : null;
   return b.date === date ? { done: b.done } : null;
@@ -198,7 +218,7 @@ Deno.serve(async (req) => {
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
   const { data: cfg } = await admin.rpc("get_push_config");
   if (!cfg?.vapid_private) return new Response("Keine Schlüssel", { status: 500, headers: CORS });
-  webpush.setVapidDetails("mailto:zakariaghulami238@gmail.com", cfg.vapid_public, cfg.vapid_private);
+  webpush.setVapidDetails(APP_URL, cfg.vapid_public, cfg.vapid_private);
 
   // 1) Zeitplan (pg_cron)
   if (req.headers.get("x-cron-secret")) {

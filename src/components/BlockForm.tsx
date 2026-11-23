@@ -39,6 +39,7 @@ export default function BlockForm({ block, date, onDone }: Props) {
   const [nth, setNth] = useState(r0?.nth ?? 1);
   const [until, setUntil] = useState(r0?.until ?? "");
   const [busy, setBusy] = useState(false);
+  const [school, setSchool] = useState<boolean>(!!block?.school);
   const [msg, setMsg] = useState("");
 
   const study = isStudy(kind);
@@ -76,7 +77,7 @@ export default function BlockForm({ block, date, onDone }: Props) {
       return;
     }
     const ok = await saveBlock({
-      id: block?.id, kind, title: t, date: d, start_time: start, end_time: end,
+      id: block?.id, kind, title: t, date: d, start_time: start, end_time: end, school: freq !== "none" && school,
       exam_id: study ? examId || null : null, topic_ids: study ? topics : [], planned_minutes: planned, repeat_weekdays: null, repeat_rule: rule, custom_kind_id: customId, remind_minutes: remind === "std" ? null : Number(remind),
     });
     setBusy(false);
@@ -201,6 +202,10 @@ export default function BlockForm({ block, date, onDone }: Props) {
             <label className="lbl" htmlFor="f-until" style={{ margin: 0 }}>Ende (optional)</label>
             <input id="f-until" type="date" value={until} min={d} onChange={(e) => setUntil(e.target.value)} />
           </div>
+          <label className="check">
+            <input type="checkbox" checked={school} onChange={(e) => setSchool(e.target.checked)} />
+            <span>🏫 Schul-Termin: fällt in den <b>Schulferien</b> und an <b>Feiertagen</b> automatisch aus</span>
+          </label>
           <p className="ok small">↻ {preview}</p>
           <p className="muted small">Tipp: Der Wochentag kommt vom Datum oben (z. B. für „letzter Mittwoch im Monat“ ein Mittwoch-Datum wählen).</p>
         </div>
