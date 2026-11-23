@@ -55,6 +55,8 @@ interface Store {
   deleteGoogleRule: (id: string) => Promise<boolean>;
   toggleDone: (b: Block, date: string) => Promise<void>;
   addSession: (s: Omit<Session, "id" | "user_id" | "created_at">) => Promise<boolean>;
+  /** Gelernte Zeit ohne Plan-Eintrag (z. B. Langfristig) als erledigten Lern-Eintrag in den Plan schreiben. Gibt die id zurück. */
+  addLearnBlock: (x: { date: string; start: string; end: string; title: string; minutes: number }) => Promise<string | null>;
   deleteSession: (id: string) => Promise<boolean>;
   addActivityLog: (l: Omit<ActivityLog, "id" | "user_id" | "created_at">) => Promise<boolean>;
   deleteActivityLog: (id: string) => Promise<boolean>;
@@ -406,6 +408,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!(await runOrQueue(uid!, { t: "update", table: "plan_blocks", id: b.id, row: patch as Record<string, unknown> }))) { setError(FAIL); setBlocks((p) => p.map((x) => (x.id === b.id ? b : x))); }
   };
 
+  const addLearnBlock: Store["addLearnBlock"] = async (x) => {
+    const row = {
+      id: crypto.randomUUID(), date: x.date, start_time: x.start, end_time: x.end, kind: "lernen", title: x.title.slice(0, 80) || "Lernen",
+      exam_id: null, topic_ids: [], planned_minutes: x.minutes, done: true, completed_dates: [], repeat_weekdays: null, repeat_rule: null,
+    };
+    if (!(await runOrQueue(uid!, { t: "insert", table: "plan_blocks", row }))) { setError(FAIL); return null; }
+    setBlocks((p) => [...p, { ...row, user_id: uid!, custom_kind_id: null, skip_dates: [], remind_minutes: null, deleted_at: null, day_notes: {} } as unknown as Block]);
+    return row.id;
+  };
+
   const addSession: Store["addSession"] = async (s) => {
     const row = { ...s, id: crypto.randomUUID() };
     if (!(await runOrQueue(uid!, { t: "insert", table: "study_sessions", row }))) { setError(FAIL); return false; }
@@ -511,7 +523,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Store>(() => ({
     offline, pending, auth, authReady, ready, exams, blocks, trash, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, googleRules, activityLogs, settings, timer, error, clearError: () => setError(null),
-    saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, restoreBlock, purgeBlock, unskipOccurrence, saveDayNote, addBlocks, skipOccurrence, skipMany, detachOccurrence, saveCustomKind, deleteCustomKind, saveGoogleMark, saveGoogleRule, deleteGoogleRule, toggleDone, addSession, deleteSession, addActivityLog, deleteActivityLog, setTimer, saveGrade, deleteGrade, saveReportGrade, saveSettings, saveSubjects, deleteSubject, reloadAll: loadAll, signOut,
+    saveExam, deleteExam, saveGoal, deleteGoal, saveBlock, deleteBlock, restoreBlock, purgeBlock, unskipOccurrence, saveDayNote, addBlocks, skipOccurrence, skipMany, detachOccurrence, saveCustomKind, deleteCustomKind, saveGoogleMark, saveGoogleRule, deleteGoogleRule, toggleDone, addSession, addLearnBlock, deleteSession, addActivityLog, deleteActivityLog, setTimer, saveGrade, deleteGrade, saveReportGrade, saveSettings, saveSubjects, deleteSubject, reloadAll: loadAll, signOut,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [offline, pending, auth, authReady, ready, exams, blocks, trash, sessions, goals, grades, reportGrades, subjects, customKinds, googleMarks, googleRules, activityLogs, settings, timer, error]);
 

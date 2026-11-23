@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
 import { useStore } from "../lib/store";
 import { elapsedMs, fmtClock, POMO_MS } from "../lib/timer";
-import { today } from "../lib/dates";
+import { today, ymd } from "../lib/dates";
 
 /** Großer Start/Stopp-Timer. Läuft auf allen Geräten gleich (Zustand in der Datenbank). */
 export default function TimerCard() {
-  const { timer, setTimer, addSession, addActivityLog, googleMarks, saveGoogleMark, blocks, toggleDone } = useStore();
+  const { timer, setTimer, addSession, addLearnBlock, addActivityLog, googleMarks, saveGoogleMark, blocks, toggleDone } = useStore();
   const [now, setNow] = useState(Date.now());
   const running = !!timer?.running;
   const ms = elapsedMs(timer, now);
-  const meta = (timer?.meta ?? {}) as { title?: string; subject?: string; topic?: string; lernfeld?: string; exam_id?: string | null; date?: string; mode?: "study" | "activity" | "google"; uid?: string; kindLabel?: string };
+  const meta = (timer?.meta ?? {}) as { title?: string; subject?: string; topic?: string; lernfeld?: string; exam_id?: string | null; date?: string; mode?: "study" | "activity" | "google"; uid?: string; kindLabel?: string; first_start?: string };
   const mode = meta.mode ?? "study";
   const pomo = mode === "study";
 
@@ -52,8 +52,17 @@ export default function TimerCard() {
       const old = googleMarks.find((x) => x.uid === meta.uid && x.date === date);
       if (!(await saveGoogleMark({ uid: meta.uid, date, minutes: Math.min(1440, (old?.minutes ?? 0) + min), done: true }))) return;
     } else if (min >= 1) {
+      // Lernen ohne Plan-Eintrag (z. B. Langfristig): automatisch als erledigten Eintrag in den Plan schreiben
+      let blockId = timer.block_id;
+      if (!blockId) {
+        const startD = meta.first_start ? new Date(meta.first_start) : new Date(Date.now() - ms);
+        const endD = new Date(startD.getTime() + min * 60000);
+        const hm = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+        const title = [...new Set([meta.subject, meta.lernfeld, meta.topic].filter(Boolean))].join(" – ") || meta.title || "Lernen";
+        blockId = await addLearnBlock({ date: ymd(startD), start: hm(startD), end: hm(endD) === hm(startD) ? hm(new Date(endD.getTime() + 60000)) : hm(endD), title, minutes: min });
+      }
       const ok = await addSession({
-        block_id: timer.block_id, goal_id: timer.goal_id, exam_id: meta.exam_id ?? null,
+        block_id: blockId, goal_id: timer.goal_id, exam_id: meta.exam_id ?? null,
         subject: meta.subject ?? "", lernfeld: meta.lernfeld || null, topic: meta.topic ?? meta.title ?? "",
         date: meta.date ?? today(), minutes: min, source: "timer",
       });

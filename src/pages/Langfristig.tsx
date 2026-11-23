@@ -48,8 +48,9 @@ function LearnForm({ goal, mode, onDone }: { goal: Goal; mode: "timer" | "manuel
     e.preventDefault();
     if (mode === "timer") {
       if (timer && !window.confirm("Es läuft schon ein Timer. Den alten verwerfen und neu starten?")) return;
-      await setTimer({ block_id: null, goal_id: goal.id, running: true, started_at: new Date().toISOString(), acc_ms: 0,
-        meta: { title: topic.trim(), subject: goal.title, topic: topic.trim(), lernfeld: lf.trim(), exam_id: null, date: today() } });
+      const now = new Date().toISOString();
+      await setTimer({ block_id: null, goal_id: goal.id, running: true, started_at: now, acc_ms: 0,
+        meta: { title: topic.trim(), subject: goal.title, topic: topic.trim(), lernfeld: lf.trim(), exam_id: null, date: today(), first_start: now } });
       onDone();
     } else {
       const m = parseInt(min, 10);
